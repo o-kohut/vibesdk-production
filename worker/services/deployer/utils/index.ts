@@ -200,7 +200,7 @@ export function buildWorkerBindings(
 			bindings.push({
 				name: d1.binding,
 				type: 'd1',
-				database_id: d1.database_id,
+				id: d1.database_id,
 			});
 		}
 	}

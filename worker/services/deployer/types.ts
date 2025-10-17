@@ -110,7 +110,7 @@ export interface WorkerBinding {
 	type: string;
 	class_name?: string; // For Durable Objects
 	namespace_id?: string; // For KV namespaces
-	database_id?: string; // For D1 databases
+	id?: string; // For D1 databases
 	bucket_name?: string; // For R2 buckets
 }
 
