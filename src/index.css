@@ -6,17 +6,17 @@
   src:  url('./assets/fonts/DepartureMono-Regular.woff') 
 }
 
-/* Subtle chat edge throb effect */
+/* Subtle chat edge throb effect - Crowdin green theme */
 @keyframes chat-edge-throb {
   0%, 100% {
     box-shadow:
-      0 0 0 0 rgba(246, 130, 31, 0.10),
-      inset 0 0 0 1px rgba(246, 130, 31, 0.16);
+      0 0 0 0 rgba(83, 182, 122, 0.10),
+      inset 0 0 0 1px rgba(83, 182, 122, 0.16);
   }
   50% {
     box-shadow:
-      0 0 0 6px rgba(255, 61, 0, 0.08),
-      inset 0 0 0 2px rgba(255, 61, 0, 0.22);
+      0 0 0 6px rgba(83, 182, 122, 0.08),
+      inset 0 0 0 2px rgba(83, 182, 122, 0.22);
   }
 }
 
@@ -89,8 +89,8 @@
 	--input:
 		oklch(0.922 0 0);
 	--ring:
-		oklch(0.708 0 0);
-	--build-accent-color: #ff3d00;
+		oklch(0.63 0.15 144.19);
+	--build-accent-color: oklch(0.63 0.15 144.19); /* Crowdin green */
 	--build-chat-colors-bg-1: #e7e7e7;
 	--build-chat-colors-bg-2: #f6f6f6;
 	--build-chat-colors-bg-3: #fbfbfc;
@@ -99,37 +99,39 @@
 	--build-chat-colors-border-secondary: #eeeeee;
 	--build-chat-colors-border-tertiary: #eeeeee;
 	--build-chat-colors-danger: #950000cc;
-	--build-chat-colors-brand-heavy: #f6821f;
-	--build-chat-colors-brand-primary: #f6821f;
-	--build-chat-colors-brand-subtle: #f6821f;
+	--build-chat-colors-brand-heavy: oklch(0.63 0.15 144.19); /* Crowdin green */
+	--build-chat-colors-brand-primary: oklch(0.63 0.15 144.19); /* Crowdin green */
+	--build-chat-colors-brand-subtle: oklch(0.7 0.12 144.19); /* Lighter Crowdin green */
 	--build-chat-colors-text-inverted: #ffffff;
-	--build-chat-colors-text-primary: #0a0a0a;
-	--build-chat-colors-text-secondary: #171717;
-	--build-chat-colors-text-tertiary: #21212199;
+	--build-chat-colors-text-primary: oklch(0.3087 0.0195 229.78);
+	--build-chat-colors-text-secondary: oklch(0.46 0.02 231.35);
+	--build-chat-colors-text-tertiary: oklch(0.55 0.01 286);
 }
 
 .dark {
 	--destructive:
-		#ef4444; /* Error red */
+		oklch(0.704 0.191 22.216); /* Error red */
 	--border:
-		#393939; /* Primary border color */
+		oklch(1 0 0 / 10%); /* Primary border color */
 	--input:
-		#292929; /* Input background */
+		oklch(1 0 0 / 15%); /* Input background */
+	--ring:
+		oklch(0.7 0.17 144.29);
 
-	--build-chat-colors-bg-1: #151515;
-	--build-chat-colors-bg-2: #1f2020;
-	--build-chat-colors-bg-3: #292929;
-	--build-chat-colors-bg-4: #3c3c3c;
-	--build-chat-colors-border-primary: #393939;
-	--build-chat-colors-border-secondary: #454746;
-	--build-chat-colors-border-tertiary: #454746;
-	--build-chat-colors-brand-heavy: #f6821f;
-	--build-chat-colors-brand-primary: #f6821f;
-	--build-chat-colors-brand-subtle: #f6821f;
+	--build-chat-colors-bg-1: #16191d;
+	--build-chat-colors-bg-2: oklch(0.26 0.01 258.42);
+	--build-chat-colors-bg-3: oklch(0.37 0.01 286);
+	--build-chat-colors-bg-4: oklch(0.37 0.01 286);
+	--build-chat-colors-border-primary: oklch(1 0 0 / 10%);
+	--build-chat-colors-border-secondary: oklch(1 0 0 / 15%);
+	--build-chat-colors-border-tertiary: oklch(1 0 0 / 15%);
+	--build-chat-colors-brand-heavy: oklch(0.7 0.17 144.29); /* Crowdin green - brighter for dark mode */
+	--build-chat-colors-brand-primary: oklch(0.7 0.17 144.29); /* Crowdin green - brighter for dark mode */
+	--build-chat-colors-brand-subtle: oklch(0.65 0.14 144.29); /* Slightly dimmer Crowdin green */
 	--build-chat-colors-text-inverted: #000000;
-	--build-chat-colors-text-primary: #ffffff;
-	--build-chat-colors-text-secondary: #cdcaca;
-	--build-chat-colors-text-tertiary: #bcb9b9;
+	--build-chat-colors-text-primary: oklch(0.97 0.00 265);
+	--build-chat-colors-text-secondary: oklch(0.87 0 0);
+	--build-chat-colors-text-tertiary: oklch(0.71 0.01 286);
 
 	--shadow-dialog:
 		0px 18px 60px 0px rgba(6, 6, 5, 0.1),
