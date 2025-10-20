@@ -229,6 +229,7 @@ export interface AuthProvidersResponseData {
   providers: {
     google: boolean;
     github: boolean;
+    crowdin: boolean;
     email: boolean;
   };
   hasOAuth: boolean;

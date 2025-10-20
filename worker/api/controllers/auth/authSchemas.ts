@@ -88,6 +88,6 @@ export type VerifyEmailRequest = z.infer<typeof verifyEmailSchema>;
 /**
  * OAuth provider schema
  */
-export const oauthProviderSchema = z.enum(['google', 'github']);
+export const oauthProviderSchema = z.enum(['google', 'github', 'crowdin']);
 
 export type OAuthProviderParam = z.infer<typeof oauthProviderSchema>;

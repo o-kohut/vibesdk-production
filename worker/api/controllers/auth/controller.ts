@@ -35,7 +35,8 @@ export class AuthController extends BaseController {
      */
     static hasOAuthProviders(env: Env): boolean {
         return (!!env.GOOGLE_CLIENT_ID && !!env.GOOGLE_CLIENT_SECRET) || 
-               (!!env.GITHUB_CLIENT_ID && !!env.GITHUB_CLIENT_SECRET);
+               (!!env.GITHUB_CLIENT_ID && !!env.GITHUB_CLIENT_SECRET) ||
+               (!!env.CROWDIN_CLIENT_ID && !!env.CROWDIN_CLIENT_SECRET);
     }
     
     /**
@@ -644,10 +645,16 @@ export class AuthController extends BaseController {
         _context: RouteContext
     ): Promise<Response> {
         try {
+            const hasGoogle = !!env.GOOGLE_CLIENT_ID && !!env.GOOGLE_CLIENT_SECRET;
+            const hasGithub = !!env.GITHUB_CLIENT_ID && !!env.GITHUB_CLIENT_SECRET;
+            const hasCrowdin = !!env.CROWDIN_CLIENT_ID && !!env.CROWDIN_CLIENT_SECRET;
+            const hasOAuth = hasGoogle || hasGithub || hasCrowdin;
+            
             const providers = {
-                google: !!env.GOOGLE_CLIENT_ID && !!env.GOOGLE_CLIENT_SECRET,
-                github: !!env.GITHUB_CLIENT_ID && !!env.GITHUB_CLIENT_SECRET,
-                email: true
+                google: hasGoogle,
+                github: hasGithub,
+                crowdin: hasCrowdin,
+                email: !hasOAuth // Only allow email if NO OAuth is configured
             };
             
             // Include CSRF token with provider info
@@ -655,8 +662,8 @@ export class AuthController extends BaseController {
             
             const response = AuthController.createSuccessResponse({
                 providers,
-                hasOAuth: providers.google || providers.github,
-                requiresEmailAuth: !providers.google && !providers.github,
+                hasOAuth: hasOAuth,
+                requiresEmailAuth: !hasOAuth,
                 csrfToken,
                 csrfExpiresIn: Math.floor(CsrfService.defaults.tokenTTL / 1000)
             });
