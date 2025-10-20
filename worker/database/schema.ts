@@ -22,7 +22,7 @@ export const users = sqliteTable('users', {
     bio: text('bio'),
     
     // OAuth and Authentication
-    provider: text('provider').notNull(), // 'github', 'google', 'email'
+    provider: text('provider').notNull(), // 'github', 'google', 'crowdin', 'email'
     providerId: text('provider_id').notNull(),
     emailVerified: integer('email_verified', { mode: 'boolean' }).default(false),
     passwordHash: text('password_hash'), // Only for provider: 'email'
@@ -330,7 +330,7 @@ export const appViews = sqliteTable('app_views', {
 export const oauthStates = sqliteTable('oauth_states', {
     id: text('id').primaryKey(),
     state: text('state').notNull().unique(), // OAuth state parameter
-    provider: text('provider').notNull(), // 'github', 'google', etc.
+    provider: text('provider').notNull(), // 'github', 'google', 'crowdin', etc.
     
     // Flow Context
     redirectUri: text('redirect_uri'),
