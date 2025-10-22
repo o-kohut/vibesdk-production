@@ -24,6 +24,7 @@ export const users = sqliteTable('users', {
     // OAuth and Authentication
     provider: text('provider').notNull(), // 'github', 'google', 'crowdin', 'email'
     providerId: text('provider_id').notNull(),
+    providerData: text('provider_data', { mode: 'json' }), // Provider-specific data
     emailVerified: integer('email_verified', { mode: 'boolean' }).default(false),
     passwordHash: text('password_hash'), // Only for provider: 'email'
     

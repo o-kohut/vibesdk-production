@@ -478,6 +478,7 @@ export class AuthService extends BaseService {
                 emailVerified: oauthUserInfo.emailVerified || false,
                 provider: provider,
                 providerId: oauthUserInfo.id,
+                providerData: oauthUserInfo.providerData,
                 createdAt: now,
                 updatedAt: now
             });
@@ -496,6 +497,7 @@ export class AuthService extends BaseService {
                     avatarUrl: oauthUserInfo.picture || user.avatarUrl,
                     provider: provider,
                     providerId: oauthUserInfo.id,
+                    providerData: oauthUserInfo.providerData,
                     emailVerified: oauthUserInfo.emailVerified || user.emailVerified,
                     updatedAt: new Date()
                 })

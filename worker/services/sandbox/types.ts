@@ -28,3 +28,8 @@ export interface WranglerConfigValidationResult {
     unresolvedPlaceholders: string[];
     errors?: string[];
 }
+
+export interface CrowdinOAuthProvisioningResult {
+    success: boolean;
+    localEnvVars?: Record<string, string>;
+}

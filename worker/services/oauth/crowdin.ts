@@ -111,7 +111,10 @@ export class CrowdinOAuthProvider extends BaseOAuthProvider {
                 email: userData.email,
                 name: fullName,
                 picture: userData.avatarUrl,
-                emailVerified: userData.emailVerified
+                emailVerified: userData.emailVerified,
+                providerData: {
+                    domain // Store domain for OAuth client creation
+                }
             };
         } catch (error) {
             logger.error('Error getting user info', error);

@@ -28,6 +28,10 @@ GOOGLE_AI_STUDIO_API_KEY=""
 #CROWDIN_CLIENT_ID=""
 #CROWDIN_CLIENT_SECRET=""
 
+# Crowdin OAuth Client Management (for creating OAuth clients for user apps)
+#CROWDIN_OAUTH_MANAGER_CLIENT_ID=""
+#CROWDIN_OAUTH_MANAGER_CLIENT_SECRET=""
+
 # Secrets for various internal services of this platform
 JWT_SECRET="" 
 WEBHOOK_SECRET="" 

@@ -433,15 +433,21 @@ class SetupManager {
 		console.log('ℹ️  These credentials enable user authentication and external integrations:');
 		console.log('   • Google: For Google OAuth user login');
 		console.log('   • GitHub: For GitHub OAuth user login');
-		console.log('   • GitHub Export: For exporting generated apps to GitHub repositories\n');
+		console.log('   • Crowdin: For Crowdin OAuth user login');
+		console.log('   • GitHub Export: For exporting generated apps to GitHub repositories');
+		console.log('   • Crowdin OAuth Manager: For creating OAuth clients for user apps\n');
 
 		const otherVars = [
 			'GOOGLE_CLIENT_ID',
 			'GOOGLE_CLIENT_SECRET',
 			'GITHUB_CLIENT_ID',
 			'GITHUB_CLIENT_SECRET',
+			'CROWDIN_CLIENT_ID',
+			'CROWDIN_CLIENT_SECRET',
 			'GITHUB_EXPORTER_CLIENT_ID',
-			'GITHUB_EXPORTER_CLIENT_SECRET'
+			'GITHUB_EXPORTER_CLIENT_SECRET',
+			'CROWDIN_OAUTH_MANAGER_CLIENT_ID',
+			'CROWDIN_OAUTH_MANAGER_CLIENT_SECRET'
 		];
 
 		for (const varName of otherVars) {
@@ -1044,6 +1050,7 @@ class SetupManager {
 		'SANDBOX_SERVICE_API_KEY', 'SANDBOX_SERVICE_TYPE', 'SANDBOX_SERVICE_URL',
 		'CLOUDFLARE_API_TOKEN', 'CLOUDFLARE_ACCOUNT_ID', 'CLOUDFLARE_AI_GATEWAY_URL', 'CLOUDFLARE_AI_GATEWAY_TOKEN',
 		'SERPAPI_KEY', 'GOOGLE_CLIENT_SECRET', 'GOOGLE_CLIENT_ID', 'GITHUB_CLIENT_ID', 'GITHUB_CLIENT_SECRET',
+		'CROWDIN_CLIENT_ID', 'CROWDIN_CLIENT_SECRET', 'CROWDIN_OAUTH_MANAGER_CLIENT_ID', 'CROWDIN_OAUTH_MANAGER_CLIENT_SECRET',
 		'JWT_SECRET', 'ENTROPY_KEY', 'ENVIRONMENT', 'SECRETS_ENCRYPTION_KEY',
 		'MAX_SANDBOX_INSTANCES', 'SANDBOX_INSTANCE_TYPE', 'CUSTOM_DOMAIN', 'CUSTOM_PREVIEW_DOMAIN',
 		'ALLOCATION_STRATEGY', 'GITHUB_EXPORTER_CLIENT_ID', 'GITHUB_EXPORTER_CLIENT_SECRET',
@@ -1111,6 +1118,7 @@ class SetupManager {
 			'CLOUDFLARE_AI_GATEWAY_TOKEN', 'CLOUDFLARE_AI_GATEWAY_URL',
 			'ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'GOOGLE_AI_STUDIO_API_KEY', 'OPENROUTER_API_KEY', 'GROQ_API_KEY',
 			'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'GITHUB_CLIENT_ID', 'GITHUB_CLIENT_SECRET',
+			'CROWDIN_CLIENT_ID', 'CROWDIN_CLIENT_SECRET', 'CROWDIN_OAUTH_MANAGER_CLIENT_ID', 'CROWDIN_OAUTH_MANAGER_CLIENT_SECRET',
 			'GITHUB_EXPORTER_CLIENT_ID', 'GITHUB_EXPORTER_CLIENT_SECRET',
 			'JWT_SECRET', 'WEBHOOK_SECRET'
 		]);
@@ -1165,7 +1173,7 @@ class SetupManager {
 
 		// OAuth Configuration
 		content += '# OAuth Configuration\n';
-		const oauthVars = ['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'GITHUB_CLIENT_ID', 'GITHUB_CLIENT_SECRET'];
+		const oauthVars = ['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'GITHUB_CLIENT_ID', 'GITHUB_CLIENT_SECRET', 'CROWDIN_CLIENT_ID', 'CROWDIN_CLIENT_SECRET'];
 		for (const varName of oauthVars) {
 			if (this.config.devVars[varName]) {
 				content += `${varName}="${this.config.devVars[varName]}"\n`;
@@ -1179,6 +1187,13 @@ class SetupManager {
 			content += '\n# GitHub Exporter OAuth Configuration\n';
 			content += `GITHUB_EXPORTER_CLIENT_ID="${this.config.devVars.GITHUB_EXPORTER_CLIENT_ID || ''}"\n`;
 			content += `GITHUB_EXPORTER_CLIENT_SECRET="${this.config.devVars.GITHUB_EXPORTER_CLIENT_SECRET || ''}"\n`;
+		}
+		
+		// Crowdin OAuth Manager Configuration
+		if (this.config.devVars.CROWDIN_OAUTH_MANAGER_CLIENT_ID || this.config.devVars.CROWDIN_OAUTH_MANAGER_CLIENT_SECRET) {
+			content += '\n# Crowdin OAuth Client Management (for creating OAuth clients for user apps)\n';
+			content += `CROWDIN_OAUTH_MANAGER_CLIENT_ID="${this.config.devVars.CROWDIN_OAUTH_MANAGER_CLIENT_ID || ''}"\n`;
+			content += `CROWDIN_OAUTH_MANAGER_CLIENT_SECRET="${this.config.devVars.CROWDIN_OAUTH_MANAGER_CLIENT_SECRET || ''}"\n`;
 		}
 		content += '\n';
 
@@ -1247,6 +1262,7 @@ class SetupManager {
 			'CLOUDFLARE_AI_GATEWAY_TOKEN', 'CLOUDFLARE_AI_GATEWAY_URL',
 			'ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'GOOGLE_AI_STUDIO_API_KEY', 'OPENROUTER_API_KEY', 'GROQ_API_KEY',
 			'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'GITHUB_CLIENT_ID', 'GITHUB_CLIENT_SECRET',
+			'CROWDIN_CLIENT_ID', 'CROWDIN_CLIENT_SECRET', 'CROWDIN_OAUTH_MANAGER_CLIENT_ID', 'CROWDIN_OAUTH_MANAGER_CLIENT_SECRET',
 			'GITHUB_EXPORTER_CLIENT_ID', 'GITHUB_EXPORTER_CLIENT_SECRET',
 			'JWT_SECRET', 'WEBHOOK_SECRET'
 		]);
@@ -1285,7 +1301,7 @@ class SetupManager {
 
 		// OAuth Configuration
 		content += '# OAuth Configuration\n';
-		const oauthVars = ['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'GITHUB_CLIENT_ID', 'GITHUB_CLIENT_SECRET'];
+		const oauthVars = ['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'GITHUB_CLIENT_ID', 'GITHUB_CLIENT_SECRET', 'CROWDIN_CLIENT_ID', 'CROWDIN_CLIENT_SECRET'];
 		for (const varName of oauthVars) {
 			if (this.config.prodVars[varName]) {
 				content += `${varName}="${this.config.prodVars[varName]}"\n`;
@@ -1299,6 +1315,13 @@ class SetupManager {
 			content += '\n# GitHub Exporter OAuth Configuration\n';
 			content += `GITHUB_EXPORTER_CLIENT_ID="${this.config.prodVars.GITHUB_EXPORTER_CLIENT_ID || ''}"\n`;
 			content += `GITHUB_EXPORTER_CLIENT_SECRET="${this.config.prodVars.GITHUB_EXPORTER_CLIENT_SECRET || ''}"\n`;
+		}
+		
+		// Crowdin OAuth Manager Configuration
+		if (this.config.prodVars.CROWDIN_OAUTH_MANAGER_CLIENT_ID || this.config.prodVars.CROWDIN_OAUTH_MANAGER_CLIENT_SECRET) {
+			content += '\n# Crowdin OAuth Client Management (for creating OAuth clients for user apps)\n';
+			content += `CROWDIN_OAUTH_MANAGER_CLIENT_ID="${this.config.prodVars.CROWDIN_OAUTH_MANAGER_CLIENT_ID || ''}"\n`;
+			content += `CROWDIN_OAUTH_MANAGER_CLIENT_SECRET="${this.config.prodVars.CROWDIN_OAUTH_MANAGER_CLIENT_SECRET || ''}"\n`;
 		}
 		content += '\n';
 

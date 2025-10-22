@@ -45,7 +45,8 @@ import { FileObject } from '../code-fixer/types';
 import { generateId } from '../../utils/idGenerator';
 import { ResourceProvisioner } from './resourceProvisioner';
 import { TemplateParser } from './templateParser';
-import { ResourceProvisioningResult } from './types';
+import { ResourceProvisioningResult, CrowdinOAuthProvisioningResult } from './types';
+import { CrowdinResourceProvisioner } from '../crowdin/crowdinResourceProvisioner';
 import { GitHubService } from '../github/GitHubService';
 import { getPreviewDomain } from '../../utils/urls';
 import { isDev } from 'worker/utils/envs';
@@ -108,18 +109,21 @@ function getAutoAllocatedSandbox(sessionId: string): string {
 export class SandboxSdkClient extends BaseSandboxService {
     private sandbox: SandboxType;
     private metadataCache = new Map<string, InstanceMetadata>();
+    private userId: string;
 
-    constructor(sandboxId: string, agentId: string) {
+    constructor(sandboxId: string, agentId: string, userId: string) {
         if (env.ALLOCATION_STRATEGY === AllocationStrategy.MANY_TO_ONE) {
             sandboxId = getAutoAllocatedSandbox(sandboxId);
         }
         super(sandboxId);
         this.sandbox = this.getSandbox();
+        this.userId = userId;
         
         this.logger = createObjectLogger(this, 'SandboxSdkClient');
         this.logger.setFields({
             sandboxId: this.sandboxId,
             agentId,
+            userId
         });
         this.logger.info('SandboxSdkClient initialized', { sandboxId: this.sandboxId });
     }
@@ -749,6 +753,110 @@ export class SandboxSdkClient extends BaseSandboxService {
         }
     }
 
+    /**
+     * Provisions Crowdin OAuth clients for both development and production environments
+     */
+    private async provisionCrowdinOAuth(
+        instanceId: string,
+        projectName: string,
+        previewURL: string,
+        localEnvVars?: Record<string, string>
+    ): Promise<CrowdinOAuthProvisioningResult> {
+        try {
+            const sandbox = this.getSandbox();
+
+            // Read wrangler.jsonc file
+            const wranglerFile = await sandbox.readFile(`${instanceId}/wrangler.jsonc`);
+            if (!wranglerFile.success) {
+                this.logger.info(`No wrangler.jsonc found for ${instanceId}, skipping Crowdin OAuth provisioning`);
+                return {
+                    success: true,
+                    localEnvVars,
+                };
+            }
+
+            const productionUrl = `${this.getProtocolForHost()}://${projectName}.${getPreviewDomain(env)}`;
+            
+            let crowdinProvisioner: CrowdinResourceProvisioner;
+            try {
+                crowdinProvisioner = new CrowdinResourceProvisioner(this.logger, env, this.userId);
+            } catch (error) {
+                this.logger.warn(`Cannot initialize Crowdin OAuth provisioner: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                return {
+                    success: false,
+                    localEnvVars,
+                };
+            }
+
+            // Create dev OAuth client
+            const devOAuthResult = await crowdinProvisioner.createOAuthClient(`${projectName}-dev`, previewURL);
+            
+            // Create prod OAuth client  
+            const prodOAuthResult = await crowdinProvisioner.createOAuthClient(projectName, productionUrl);
+
+            if (!devOAuthResult.success || !prodOAuthResult.success) {
+                if (!devOAuthResult.success) {
+                    this.logger.warn(`Failed to create dev OAuth client: ${devOAuthResult.error}`);
+                }
+                if (!prodOAuthResult.success) {
+                    this.logger.warn(`Failed to create prod OAuth client: ${prodOAuthResult.error}`);
+                }
+
+                return {
+                    success: false,
+                    localEnvVars,
+                };
+            }
+
+            this.logger.info('Crowdin OAuth clients created', {
+                devClientId: devOAuthResult.clientId,
+                prodClientId: prodOAuthResult.clientId
+            });
+            
+            // Merge dev credentials with localEnvVars (create new object, don't mutate)
+            const updatedLocalEnvVars = {
+                ...(localEnvVars || {}),
+                URL: previewURL,
+                CROWDIN_CLIENT_ID: devOAuthResult.clientId!,
+                CROWDIN_CLIENT_SECRET: devOAuthResult.clientSecret!
+            };
+            
+            let wranglerUpdated = false;
+            try {
+                const wranglerJson = JSON.parse(wranglerFile.content);
+                if (!wranglerJson.vars) {
+                    wranglerJson.vars = {};
+                }
+                // Always set/override OAuth credentials
+                wranglerJson.vars.CROWDIN_CLIENT_ID = prodOAuthResult.clientId!;
+                wranglerJson.vars.CROWDIN_CLIENT_SECRET = prodOAuthResult.clientSecret!;
+                
+                const updatedWranglerContent = JSON.stringify(wranglerJson, null, 4);
+                const writeResult = await sandbox.writeFile(`${instanceId}/wrangler.jsonc`, updatedWranglerContent);
+
+                if (writeResult.success) {
+                    wranglerUpdated = true;
+                    this.logger.info('Updated wrangler.jsonc with production OAuth credentials');
+                } else {
+                    this.logger.error(`Failed to update wrangler.jsonc for ${instanceId}`);
+                }
+            } catch (parseError) {
+                this.logger.warn('Could not parse wrangler.jsonc for OAuth credentials', parseError);
+            }
+
+            return {
+                success: wranglerUpdated,
+                localEnvVars: updatedLocalEnvVars,
+            };
+        } catch (error) {
+            this.logger.warn(`Failed to provision Crowdin OAuth clients: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            return {
+                success: false,
+                localEnvVars,
+            };
+        }
+    }
+
     /*
     * Starts a cloudflared tunnel for the specified instance
     * Super usefulfor local development
@@ -860,6 +968,41 @@ export class SandboxSdkClient extends BaseSandboxService {
             if (!resourceProvisioningResult.success && resourceProvisioningResult.failed.length > 0) {
                 this.logger.warn(`Some resources failed to provision for ${instanceId}, but continuing setup process`);
             }
+
+            // Allocate single port for both dev server and tunnel
+            const allocatedPort = await this.allocateAvailablePort();
+
+            // If on local development, start cloudflared tunnel
+            let tunnelUrlPromise = Promise.resolve('');
+            if (isDev(env) || env.USE_TUNNEL_FOR_PREVIEW) {
+                this.logger.info('Starting cloudflared tunnel for local development', { instanceId });
+                tunnelUrlPromise = this.startCloudflaredTunnel(instanceId, allocatedPort);
+            }
+
+            const tunnelURL = await tunnelUrlPromise;
+
+            // Expose the same port for preview URL
+            const previewResult = await sandbox.exposePort(allocatedPort, { hostname: getPreviewDomain(env) });
+            let previewURL = previewResult.url;
+            if (!isDev(env)) {
+                const previewDomain = getPreviewDomain(env);
+                if (previewDomain) {
+                    // Replace CUSTOM_DOMAIN with previewDomain in previewURL
+                    previewURL = previewURL.replace(env.CUSTOM_DOMAIN, previewDomain);
+                }
+            }
+
+            if(env.USE_TUNNEL_FOR_PREVIEW) {
+                this.logger.info('Using tunnel url instead for preview as configured', { instanceId, tunnelURL });
+                previewURL = tunnelURL;
+            }
+            
+            // Always provision Crowdin OAuth clients (both dev and prod)
+            const oauthProvisioningResult = await this.provisionCrowdinOAuth(instanceId, projectName, previewURL, localEnvVars);
+            localEnvVars = oauthProvisioningResult.localEnvVars;
+            if (!oauthProvisioningResult.success) {
+                this.logger.warn(`Crowdin OAuth failed to provision for ${instanceId}, but continuing setup process`);
+            }
             
             // Store wrangler.jsonc configuration in KV after resource provisioning
             try {
@@ -874,22 +1017,9 @@ export class SandboxSdkClient extends BaseSandboxService {
                 this.logger.warn('Failed to store wrangler config in KV', { instanceId, error: error instanceof Error ? error.message : 'Unknown error' });
                 // Non-blocking - continue with setup
             }
-            
-            // Allocate single port for both dev server and tunnel
-            const allocatedPort = await this.allocateAvailablePort();
-
-            // If on local development, start cloudflared tunnel
-            let tunnelUrlPromise = Promise.resolve('');
-            if (isDev(env) || env.USE_TUNNEL_FOR_PREVIEW) {
-                this.logger.info('Starting cloudflared tunnel for local development', { instanceId });
-                tunnelUrlPromise = this.startCloudflaredTunnel(instanceId, allocatedPort);
-            }
 
             this.logger.info('Installing dependencies', { instanceId });
-            const [installResult, tunnelURL] = await Promise.all([
-                this.executeCommand(instanceId, `bun install`, 40000),
-                tunnelUrlPromise
-            ]);
+            const installResult = await this.executeCommand(instanceId, `bun install`, 40000);
             this.logger.info('Dependencies installed', { instanceId, tunnelURL });
                 
             if (installResult.exitCode === 0) {
@@ -904,22 +1034,6 @@ export class SandboxSdkClient extends BaseSandboxService {
                     // Start dev server on allocated port
                     const processId = await this.startDevServer(instanceId, allocatedPort);
                     this.logger.info('Instance created successfully', { instanceId, processId, port: allocatedPort });
-                        
-                    // Expose the same port for preview URL
-                    const previewResult = await sandbox.exposePort(allocatedPort, { hostname: getPreviewDomain(env) });
-                    let previewURL = previewResult.url;
-                    if (!isDev(env)) {
-                        const previewDomain = getPreviewDomain(env);
-                        if (previewDomain) {
-                            // Replace CUSTOM_DOMAIN with previewDomain in previewURL
-                            previewURL = previewURL.replace(env.CUSTOM_DOMAIN, previewDomain);
-                        }
-                    }
-
-                    if(env.USE_TUNNEL_FOR_PREVIEW) {
-                        this.logger.info('Using tunnel url instead for preview as configured', { instanceId, tunnelURL });
-                        previewURL = tunnelURL;
-                    }
                         
                     this.logger.info('Preview URL exposed', { instanceId, previewURL });
                         

@@ -147,6 +147,10 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
         return this.state.inferenceContext.agentId
     }
 
+    getUserId() {
+        return this.state.inferenceContext.userId
+    }
+
     initialState: CodeGenState = {
         blueprint: {} as Blueprint, 
         query: "",
@@ -394,7 +398,7 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
     getSandboxServiceClient(): BaseSandboxService {
         if (this.sandboxServiceClient === undefined) {
             this.logger().info('Initializing sandbox service client');
-            this.sandboxServiceClient = getSandboxService(this.getSessionId(), this.getAgentId());
+            this.sandboxServiceClient = getSandboxService(this.getSessionId(), this.getAgentId(), this.getUserId());
         }
         return this.sandboxServiceClient;
     }
