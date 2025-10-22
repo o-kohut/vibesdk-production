@@ -18,7 +18,7 @@ export class CrowdinOAuthProvider extends BaseOAuthProvider {
     protected readonly authorizationUrl = 'https://accounts.crowdin.com/oauth/authorize';
     protected readonly tokenUrl = 'https://accounts.crowdin.com/oauth/token';
     protected readonly userInfoUrl = ''; // Will be set dynamically based on domain
-    protected readonly scopes: string[] = ['user:read'];
+    protected readonly scopes: string[] = ['application'];
     
     /**
      * Decode JWT token to extract payload (without verification)
