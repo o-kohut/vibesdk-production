@@ -172,6 +172,18 @@ export function buildWorkerBindings(
 		});
 	}
 
+	// Add environment variables as secret_text bindings for security
+	// All vars are treated as secrets to prevent accidental exposure
+	if (config.vars) {
+		for (const [name, value] of Object.entries(config.vars)) {
+			bindings.push({
+				name: name,
+				type: 'secret_text',
+				text: String(value),
+			});
+		}
+	}
+
 	// Add Durable Object bindings
 	if (config.durable_objects?.bindings) {
 		for (const binding of config.durable_objects.bindings) {

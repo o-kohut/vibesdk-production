@@ -112,6 +112,7 @@ export interface WorkerBinding {
 	namespace_id?: string; // For KV namespaces
 	id?: string; // For D1 databases
 	bucket_name?: string; // For R2 buckets
+	text?: string; // For secret_text bindings
 }
 
 /**
