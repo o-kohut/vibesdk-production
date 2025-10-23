@@ -821,27 +821,19 @@ export class SandboxSdkClient extends BaseSandboxService {
                 CROWDIN_CLIENT_SECRET: devOAuthResult.clientSecret!
             };
             
+            // Replace placeholders in JSONC file (preserves comments and formatting)
             let wranglerUpdated = false;
-            try {
-                const wranglerJson = JSON.parse(wranglerFile.content);
-                if (!wranglerJson.vars) {
-                    wranglerJson.vars = {};
-                }
-                // Always set/override OAuth credentials
-                wranglerJson.vars.CROWDIN_CLIENT_ID = prodOAuthResult.clientId!;
-                wranglerJson.vars.CROWDIN_CLIENT_SECRET = prodOAuthResult.clientSecret!;
-                
-                const updatedWranglerContent = JSON.stringify(wranglerJson, null, 4);
-                const writeResult = await sandbox.writeFile(`${instanceId}/wrangler.jsonc`, updatedWranglerContent);
+            let updatedWranglerContent = wranglerFile.content
+                .replace(/\{\{CROWDIN_CLIENT_ID\}\}/g, prodOAuthResult.clientId!)
+                .replace(/\{\{CROWDIN_CLIENT_SECRET\}\}/g, prodOAuthResult.clientSecret!);
+        
+            const writeResult = await sandbox.writeFile(`${instanceId}/wrangler.jsonc`, updatedWranglerContent);
 
-                if (writeResult.success) {
-                    wranglerUpdated = true;
-                    this.logger.info('Updated wrangler.jsonc with production OAuth credentials');
-                } else {
-                    this.logger.error(`Failed to update wrangler.jsonc for ${instanceId}`);
-                }
-            } catch (parseError) {
-                this.logger.warn('Could not parse wrangler.jsonc for OAuth credentials', parseError);
+            if (writeResult.success) {
+                wranglerUpdated = true;
+                this.logger.info('Updated wrangler.jsonc with production OAuth credentials');
+            } else {
+                this.logger.error(`Failed to update wrangler.jsonc for ${instanceId}`);
             }
 
             return {
