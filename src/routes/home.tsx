@@ -39,10 +39,13 @@ export default function Home() {
 
 
 	const placeholderPhrases = useMemo(() => [
-		"custom MT engine",
-		"external QA Check",
-		"project dashboard with tasks statuses",
-		"file processor for custom XML format"
+		"custom MT engine integration",
+		"translation quality checker",
+		"project progress dashboard",
+		"custom file format processor",
+		"workflow automation tool",
+		"glossary management system",
+		"translation memory analyzer"
 	], []);
 	const [currentPlaceholderPhraseIndex, setCurrentPlaceholderPhraseIndex] = useState(0);
 	const [currentPlaceholderText, setCurrentPlaceholderText] = useState("");
@@ -172,8 +175,11 @@ export default function Home() {
 							discoverReady ? "mt-48" : "mt-[20vh] sm:mt-[24vh] md:mt-[28vh]"
 						)}>
 						<h1 className="text-shadow-sm text-accent font-medium leading-[1.1] tracking-tight text-5xl w-full mb-4 bg-clip-text bg-gradient-to-r from-text-primary to-text-primary/90">
-							What should we build today?
+							Build your Crowdin app
 						</h1>
+						<p className="text-text-secondary text-lg mb-6">
+							Create custom localization tools, automate workflows, and enhance your translation projects with AI
+						</p>
 
 						<form
 							method="POST"
@@ -200,7 +206,7 @@ export default function Home() {
 									className="w-full resize-none ring-0 z-20 outline-0 placeholder:text-text-primary/60 text-text-primary"
 									name="query"
 									value={query}
-									placeholder={`Create a ${currentPlaceholderText}`}
+									placeholder={`Build a ${currentPlaceholderText}`}
 									ref={textareaRef}
 									onChange={(e) => {
 										setQuery(e.target.value);

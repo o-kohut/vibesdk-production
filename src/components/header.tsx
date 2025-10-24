@@ -1,6 +1,6 @@
 import React from 'react';
 import clsx from 'clsx';
-import { CloudflareLogo } from './icons/logos';
+import { CrowdinLogo } from './icons/logos';
 import { Link } from 'react-router';
 
 export function Header({
@@ -16,9 +16,9 @@ export function Header({
 		>
 			<h1 className="flex items-center gap-2 mx-4">
 				<Link to="/">
-					<CloudflareLogo
+					<CrowdinLogo
 						className="h-4 text-bg-bright-dim"
-						aria-label="Cloudflare v1"
+						aria-label="Crowdin App Builder"
 					/>
 				</Link>
 			</h1>
