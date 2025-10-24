@@ -12,7 +12,7 @@ import {
     registerSchema, 
     oauthProviderSchema
 } from './authSchemas';
-import { SecurityError } from 'shared/types/errors';
+import { SecurityError, SecurityErrorType } from 'shared/types/errors';
 import { 
     formatAuthResponse,
     mapUserResponse, 
@@ -352,6 +352,12 @@ export class AuthController extends BaseController {
         } catch (error) {
             this.logger.error('OAuth callback failed', error);
             const baseUrl = new URL(request.url).origin;
+            
+            // Handle email not whitelisted error - redirect to access-denied page
+            if (error instanceof SecurityError && error.type === SecurityErrorType.EMAIL_NOT_WHITELISTED) {
+                return Response.redirect(`${baseUrl}/access-denied`, 302);
+            }
+            
             return Response.redirect(`${baseUrl}/?error=auth_failed`, 302);
         }
     }

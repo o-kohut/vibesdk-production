@@ -28,6 +28,7 @@ import { createLogger } from '../../logger';
 import { validateEmail, validatePassword } from '../../utils/validationUtils';
 import { extractRequestMetadata } from '../../utils/authUtils';
 import { BaseService } from './BaseService';
+import { checkEmailWhitelist } from '../../utils/emailWhitelist';
 
 const logger = createLogger('AuthService');
 
@@ -89,6 +90,16 @@ export class AuthService extends BaseService {
                     SecurityErrorType.INVALID_INPUT,
                     passwordValidation.errors!.join(', '),
                     400
+                );
+            }
+            
+            // Check email whitelist
+            if (!checkEmailWhitelist(data.email, this.env)) {
+                logger.warn('Registration blocked - email not whitelisted', { email: data.email });
+                throw new SecurityError(
+                    SecurityErrorType.EMAIL_NOT_WHITELISTED,
+                    'Your email is not authorized to access this application',
+                    403
                 );
             }
             
@@ -212,6 +223,17 @@ export class AuthService extends BaseService {
                     SecurityErrorType.UNAUTHORIZED,
                     'Invalid email or password',
                     401
+                );
+            }
+            
+            // Check email whitelist
+            if (!checkEmailWhitelist(user.email, this.env)) {
+                logger.warn('Login blocked - email not whitelisted', { email: user.email });
+                await this.logAuthAttempt(credentials.email, 'login', false, request);
+                throw new SecurityError(
+                    SecurityErrorType.EMAIL_NOT_WHITELISTED,
+                    'Your email is not authorized to access this application',
+                    403
                 );
             }
             
@@ -413,6 +435,19 @@ export class AuthService extends BaseService {
             
             // Get user info
             const oauthUserInfo = await oauthProvider.getUserInfo(tokens.accessToken);
+            
+            // Check email whitelist
+            if (!checkEmailWhitelist(oauthUserInfo.email, this.env)) {
+                logger.warn('OAuth login blocked - email not whitelisted', { 
+                    email: oauthUserInfo.email, 
+                    provider 
+                });
+                throw new SecurityError(
+                    SecurityErrorType.EMAIL_NOT_WHITELISTED,
+                    'Your email is not authorized to access this application',
+                    403
+                );
+            }
             
             // Find or create user
             const user = await this.findOrCreateOAuthUser(provider, oauthUserInfo);
