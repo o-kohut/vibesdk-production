@@ -1,0 +1,1 @@
+DROP INDEX `users_provider_unique_idx`;

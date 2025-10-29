@@ -51,7 +51,6 @@ export const users = sqliteTable('users', {
     deletedAt: integer('deleted_at', { mode: 'timestamp' }),
 }, (table) => ({
     emailIdx: index('users_email_idx').on(table.email),
-    providerIdx: uniqueIndex('users_provider_unique_idx').on(table.provider, table.providerId),
     usernameIdx: index('users_username_idx').on(table.username),
     failedLoginAttemptsIdx: index('users_failed_login_attempts_idx').on(table.failedLoginAttempts),
     lockedUntilIdx: index('users_locked_until_idx').on(table.lockedUntil),

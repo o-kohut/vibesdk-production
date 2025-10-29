@@ -36,6 +36,13 @@
       "when": 1761053388396,
       "tag": "0004_silky_demogoblin",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1761731890115,
+      "tag": "0005_shallow_paladin",
+      "breakpoints": true
     }
   ]
 }
