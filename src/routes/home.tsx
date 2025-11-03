@@ -13,6 +13,7 @@ import { useDragDrop } from '@/hooks/use-drag-drop';
 import { ImageUploadButton } from '@/components/image-upload-button';
 import { ImageAttachmentPreview } from '@/components/image-attachment-preview';
 import { SUPPORTED_IMAGE_MIME_TYPES } from '@/api-types';
+import { Button } from '@/components/ui/button.tsx';
 
 export default function Home() {
 	const navigate = useNavigate();
@@ -51,7 +52,7 @@ export default function Home() {
 	const handleCreateApp = (query: string, mode: AgentMode) => {
 		const encodedQuery = encodeURIComponent(query);
 		const encodedMode = encodeURIComponent(mode);
-		
+
 		// Encode images as JSON if present
 		const imageParam = images.length > 0 ? `&images=${encodeURIComponent(JSON.stringify(images))}` : '';
 		const intendedUrl = `/chat/new?query=${encodedQuery}&agentMode=${encodedMode}${imageParam}`;
@@ -120,46 +121,22 @@ export default function Home() {
 
 	return (
 		<div className="relative flex flex-col items-center size-full">
-			{/* Dotted background pattern - extends to full viewport */}
-			<div className="fixed inset-0 text-accent z-0 opacity-20 pointer-events-none">
-				<svg width="100%" height="100%">
-					<defs>
-						<pattern
-							id=":S2:"
-							viewBox="-6 -6 12 12"
-							patternUnits="userSpaceOnUse"
-							width="12"
-							height="12"
-						>
-							<circle
-								cx="0"
-								cy="0"
-								r="1"
-								fill="currentColor"
-							></circle>
-						</pattern>
-					</defs>
-					<rect
-						width="100%"
-						height="100%"
-						fill="url(#:S2:)"
-					></rect>
-				</svg>
+			<div
+				className="fixed inset-0 text-accent z-0 opacity-20 pointer-events-none bg-[var(--bg-background)] opacity-80 [background-image:linear-gradient(var(--border)_1.3px,transparent_1.3px),linear-gradient(to_right,var(--border)_1.3px,var(--background)_1.3px)] [background-size:26px_26px] mask-b-to-60%">
 			</div>
-			
 			<LayoutGroup>
 				<div className="rounded-md w-full max-w-2xl overflow-hidden">
 					<motion.div
 						layout
 						transition={{ layout: { duration: 0.5, ease: [0.22, 1, 0.36, 1] } }}
 						className={clsx(
-							"px-6 p-8 flex flex-col items-center z-10",
+							"px-6 p-8 flex flex-col items-center z-10 relative",
 							"mt-[20vh] sm:mt-[24vh] md:mt-[28vh]"
 						)}>
-						<h1 className="text-shadow-sm text-accent font-medium leading-[1.1] tracking-tight text-5xl w-full mb-4 bg-clip-text bg-gradient-to-r from-text-primary to-text-primary/90">
+						<h1 className="text-primary font-semibold font-heading leading-[1.1] tracking-tight text-5xl w-full mb-4">
 							Build your Crowdin app
 						</h1>
-						<p className="text-text-secondary text-lg mb-6">
+						<p className="text-text-secondary text-base mb-4">
 							Create custom localization tools, automate workflows, and enhance your translation projects with AI
 						</p>
 
@@ -170,9 +147,9 @@ export default function Home() {
 								const query = textareaRef.current!.value;
 								handleCreateApp(query, agentMode);
 							}}
-							className="flex z-10 flex-col w-full min-h-[150px] bg-bg-4 border border-accent/30 dark:border-accent/50 dark:bg-bg-2 rounded-[18px] shadow-textarea p-5 transition-all duration-200"
+							className="flex z-10 flex-col w-full min-h-[150px] bg-bg-3 border rounded-lg shadow-md p-5 transition-all duration-200"
 						>
-							<div 
+							<div
 								className={clsx(
 									"flex-1 flex flex-col relative",
 									isDragging && "ring-2 ring-accent ring-offset-2 rounded-lg"
@@ -228,13 +205,14 @@ export default function Home() {
 									onFilesSelected={addImages}
 									disabled={isProcessing}
 								/>
-								<button
+								<Button
+									variant="default"
+									size="sm"
 									type="submit"
 									disabled={!query.trim()}
-									className="bg-accent text-white p-1 rounded-md *:size-5 transition-all duration-200 hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
 								>
 									<ArrowRight />
-								</button>
+								</Button>
 							</div>
 							</div>
 						</form>

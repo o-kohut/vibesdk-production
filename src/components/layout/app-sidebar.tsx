@@ -91,7 +91,7 @@ function AppMenuItem({
 			<SidebarMenuButton
 				asChild
 				tooltip={app.title}
-				className="cursor-pointer transition-opacity hover:opacity-75 pr-0"
+				className="cursor-pointer transition-background hover:bg-accent/10"
 			>
 				<a
 					href={`/app/${app.id}`}
@@ -202,14 +202,14 @@ export function AppSidebar() {
 			<Sidebar
 				collapsible="icon"
 				className={cn(
-					'bg-bg-2 transition-all duration-300 ease-in-out',
+					'bg-bg-1 transition-all duration-300 ease-in-out',
 				)}
 			>
 				<SidebarContent className="mt-2">
 					{/* Build Button */}
 					<SidebarGroup>
 						<SidebarGroupContent>
-	
+
 							{location.pathname !== '/' && (
 								<div
 									className={cn(
@@ -221,10 +221,7 @@ export function AppSidebar() {
 											<TooltipTrigger asChild>
 												<button
 													className={cn(
-														'group flex w-full border-[0.5px] border-bg-2 items-center gap-2 font-medium hover:opacity-80 hover:cursor-pointer p-2 rounded-md cursor-hand text-text-secondary hover:text-text-primary',
-														isCollapsed
-															? 'justify-center bg-accent'
-															: 'justify-start bg-accent',
+														"group flex w-full bg-primary text-primary-foreground hover:bg-primary/90 items-center gap-2 font-medium hover:cursor-pointer p-2 rounded-md cursor-hand justify-center",
 													)}
 													onClick={() => {
 														// Collapse sidebar when starting a new build
@@ -234,9 +231,9 @@ export function AppSidebar() {
 														navigate('/');
 													}}
 												>
-													<Plus className="h-4 w-4 text-neutral-50" />
+													<Plus className="h-4 w-4 " />
 													{!isCollapsed && (
-														<span className="font-medium text-neutral-50">
+														<span>
 															New build
 														</span>
 													)}
@@ -408,7 +405,7 @@ export function AppSidebar() {
 										>
 											{!isCollapsed && 'Bookmarked'}
 											<Bookmark className="h-5 w-5 fill-yellow-500 text-yellow-500" />
-											
+
 										</SidebarGroupLabel>
 										<SidebarGroupContent>
 											<SidebarMenu>

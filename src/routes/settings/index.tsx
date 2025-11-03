@@ -516,10 +516,9 @@ export default function SettingsPage() {
 		<div className="min-h-screen bg-bg-3 relative">
 			<main className="container mx-auto px-4 py-8 max-w-4xl">
 				<div className="space-y-8">
-					{/* Page Header */}
 					<div>
-						<h1 className="text-4xl font-bold font-[departureMono] text-red-500">
-							SETTINGS
+						<h1 className="text-3xl font-bold font-heading text-foreground">
+							Settings
 						</h1>
 						<p className="text-text-tertiary mt-2">
 							Manage your account settings and preferences

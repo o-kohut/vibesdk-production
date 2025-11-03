@@ -51,38 +51,38 @@ export default function AccessDenied() {
 						<h1 className="text-2xl font-semibold text-text-primary">
 							Access Restricted
 						</h1>
-						
+
 						<p className="text-text-secondary leading-relaxed">
-							Your email address is not authorized to access this application. 
+							Your email address is not authorized to access this application.
 							This platform is currently available only to whitelisted users.
 						</p>
 
-						<div className="bg-accent/5 dark:bg-accent/10 border border-accent/20 rounded-lg p-4 mt-6">
-							<p className="text-sm text-text-secondary">
-								To request access, please contact <strong>Crowdin Support</strong> and 
+						<div className="bg-blue-50 dark:bg-blue-400/10 border border-blue-50 dark:border-blue-400/5 rounded-md p-4 mt-6">
+							<p className="text-sm text-blue-900 dark:text-blue-400/80">
+								To request access, please contact <strong>Crowdin Support</strong> and
 								provide your email address to be added to the whitelist.
 							</p>
 						</div>
 
 						{/* Actions */}
 						<div className="flex flex-col gap-3 mt-8">
-							<a
-								href="https://crowdin.com/contacts"
-								target="_blank"
-								rel="noopener noreferrer"
-								className="w-full"
-							>
-								<Button 
-									className="w-full bg-accent hover:bg-accent/90 text-white"
-									size="lg"
-								>
-									<Mail className="size-4 mr-2" />
-									Contact Crowdin Support
-								</Button>
-							</a>
-
 							<Button
+								asChild
 								variant="outline"
+								className="w-full"
+								size="lg"
+							>
+								<a
+									href="https://crowdin.com/contacts"
+									target="_blank"
+									rel="noopener noreferrer"
+								>
+									<Mail className="size-4" />
+									Contact Crowdin Support
+								</a>
+							</Button>
+							<Button
+								variant="ghost"
 								size="lg"
 								onClick={() => navigate('/')}
 								className="w-full"

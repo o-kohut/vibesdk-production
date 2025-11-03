@@ -9,6 +9,7 @@ import { X, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import clsx from 'clsx';
 import { useAuth } from '@/contexts/auth-context';
+import { Button } from '@/components/ui/button.tsx';
 // import {
 // 	validateEmail,
 // 	validatePassword,
@@ -35,7 +36,7 @@ interface LoginModalProps {
 	}) => Promise<void>;
 	error?: string | null;
 	onClearError?: () => void;
-	
+
 	// Contextual messaging
 	actionContext?: string; // e.g., "to star this app", "to fork this project"
 	showCloseButton?: boolean;
@@ -190,16 +191,17 @@ export function LoginModal({
 						transition={{ type: 'spring', duration: 0.5 }}
 						className="relative z-10 w-full max-w-md mx-auto my-8"
 					>
-						<div className="bg-bg-3/95 backdrop-blur-xl text-text-primary border border-border-primary/50 rounded-2xl shadow-2xl overflow-hidden">
+						<div className="bg-background backdrop-blur-xl rounded-2xl shadow-2xl overflow-hidden">
 							{/* Header */}
 							<div className="relative p-6 pb-0">
 								{showCloseButton && (
-									<button
+									<Button
 										onClick={handleClose}
-										className="absolute right-4 top-4 p-2 rounded-lg hover:bg-accent transition-colors"
+										className="absolute right-4 top-4 p-2"
+										variant="ghost"
 									>
 										<X className="h-4 w-4" />
-									</button>
+									</Button>
 								)}
 
 								<div className="text-center space-y-2">
@@ -246,29 +248,32 @@ export function LoginModal({
 							)}
 
 							{/* Authentication Options */}
-							<div className={clsx('p-6 space-y-5 pt-12')}>
+							<div className={clsx('p-6 space-y-5 pt-8')}>
 								{/* Crowdin */}
 								{showCrowdin && (
 									<motion.button
 										whileTap={{ scale: 0.98 }}
 										onClick={() => handleOAuthClick('crowdin')}
-										className="w-full group relative overflow-hidden rounded-xl bg-white dark:bg-bg-4 p-4 text-gray-800 dark:text-text-primary transition-all hover:bg-gray-50 dark:hover:bg-bg-4/80 border border-gray-200 dark:border-border-primary disabled:opacity-50 disabled:cursor-not-allowed"
+										className="w-full group relative overflow-hidden rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 p-4 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
 									>
 										<div className="relative z-10 flex items-center justify-center gap-3">
-											<svg className="h-5 w-5" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
-												<path d="M56.6667 80H23.3333C9.16667 80 0 70.8333 0 56.6667V23.0781C0 9.16667 9.16667 0 23.0781 0H56.6667C70.8333 0 80 9.16667 80 23.3333V56.6667C80 70.8333 70.8333 80 56.6667 80Z" fill="#263238"/>
-												<path d="M51.3968 54.5041C49.9 54.5041 48.5662 54.0395 47.4621 53.1296C46.1432 52.0583 45.0947 50.4611 45.0576 48.5835C45.0391 47.6352 46.0357 47.6352 46.0357 47.6352C46.0357 47.6352 47.6548 47.616 48.4402 47.616C49.2257 47.6352 49.4554 48.7678 49.4924 49.052C49.7962 51.5976 51.1856 52.7072 52.2526 53.214C52.8936 53.5174 52.7342 54.4657 51.3968 54.508V54.5041Z" fill="white"/>
-												<path d="M37.9552 41.5689C36.6363 41.4076 34.6801 41.2694 33.4167 40.9469C31.3679 40.4247 31.4234 38.5164 31.5124 37.8944C31.7606 36.0284 32.4201 34.3006 33.4352 32.6957C34.6986 30.7298 36.514 29.002 38.8481 27.5967C43.2274 24.9666 49.9385 23.3335 56.6667 23.3335C57.9136 23.3335 66.9908 23.3335 66.9908 25.2085C66.9908 26.2502 64.8949 26.1531 63.9824 26.1531C57.1283 26.1531 52.2489 27.1168 48.618 29.2055C45.0391 31.252 42.5456 34.3851 40.8562 39.0232C40.6784 39.4264 40.0893 41.8146 37.9552 41.5727V41.5689Z" fill="white"/>
-												<path d="M43.9348 60.7086C40.5337 60.7815 37.3289 59.1881 34.9022 56.4083C32.846 54.0546 31.6085 51.6818 31.3788 48.637C31.238 46.6481 32.0865 45.9609 33.2387 46.0799C34.0352 46.1605 36.5138 46.2834 37.9328 46.5867C38.9962 46.8094 39.7038 47.4199 39.8816 48.6754C40.819 55.3716 44.8944 58.0055 47.3211 58.5738C47.7472 58.6736 48.0102 58.9578 47.9954 59.4684C47.9769 59.956 47.7064 60.6241 43.9385 60.7048L43.9348 60.7086Z" fill="white"/>
-												<path d="M34.2464 66.6527C31.8345 66.7564 29.4744 66.2534 28.8001 66.1305C25.9622 65.6084 23.5836 64.7061 21.5459 63.3661C16.6665 60.1639 13.7211 54.5082 13.3691 47.812C13.2802 46.2224 13.0838 43.1853 16.7406 43.4157C18.2485 43.5002 20.6419 44.2527 22.3276 44.7557C24.4209 45.3624 25.4324 47.0364 25.4324 48.6913C25.4324 58.1327 33.3333 64.1667 37.0833 64.1667C37.9429 64.1667 38.3333 64.4452 38.3333 65C38.3333 65.4167 37.9439 66.4953 34.2501 66.6566L34.2464 66.6527Z" fill="white"/>
-												<path d="M21.6602 38.9073C20.2338 38.6424 18.8408 38.0319 17.4848 37.6825C13.2908 36.6036 14.0058 32.2188 14.3986 31.017C18.2146 19.3755 30.3298 15.4822 40.1071 14.4417C49.3138 13.4626 58.9467 14.219 67.92 16.8068C68.561 16.9835 70.3282 17.425 69.9466 18.5001C69.565 19.5752 68.5017 18.8265 58.7133 18.6038C55.4863 18.5308 52.263 18.742 49.0286 19.2565C43.4786 20.1319 37.773 21.948 33.1863 25.7799C30.9744 27.6344 29.0293 29.9996 27.7289 32.7948C27.3881 33.5281 27.1213 34.2615 26.8916 34.9948C26.6582 35.7704 25.7838 39.6637 21.6639 38.9112L21.6602 38.9073Z" fill="white"/>
-												<path d="M45.1315 41.1541C45.9169 37.5104 48.75 32.0831 59.5833 32.0831C60.8333 32.0831 61.25 32.4998 61.25 32.9165C61.25 33.3331 60.6669 33.7498 60 33.7498C53.4172 33.7498 51.3261 37.7906 49.8071 41.9297C49.3181 43.262 48.2029 43.4617 46.8061 43.2236C45.828 43.0432 44.7647 42.9241 45.1315 41.1541Z" fill="white"/>
-											</svg>
+											<div className="w-6 h-6 text-background">
+												<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none">
+													<g clipPath="url(#clip0_16230_3343)">
+														<path d="M17 0C18.1097 0 19.1174 0.184561 20 0.535156C20.8097 0.856826 21.5139 1.31867 22.0957 1.9043C22.693 2.50553 23.1627 3.23232 23.4863 4.06836C23.8214 4.93431 24 5.91735 24 7V17C24 18.1097 23.8154 19.1174 23.4648 20C23.1431 20.8097 22.6813 21.5139 22.0957 22.0957C21.5108 22.6768 20.8075 23.1376 20 23.46C19.1176 23.8124 18.1112 24 17 24H7C5.88564 24 4.87442 23.8134 3.98926 23.46C3.18418 23.1386 2.48348 22.6787 1.9043 22.0957C1.32324 21.5108 0.862517 20.8075 0.540039 20C0.187654 19.1176 0 18.1112 0 17V6.91992C8.6652e-06 5.87475 0.173869 4.91647 0.5 4.06836C0.822883 3.22883 1.29559 2.49737 1.89648 1.89648C2.47565 1.31731 3.1759 0.856749 3.97754 0.535156C4.8478 0.186081 5.83733 8.97537e-06 6.91992 0H17ZM5.02441 13.0234C3.92872 12.9515 3.98362 13.8637 4.01562 14.3438C4.11963 16.3516 5.00787 18.0478 6.47168 19.0078C7.07956 19.4077 7.79968 19.6798 8.64746 19.8398C8.84746 19.8798 9.56022 20.024 10.2803 20C11.3914 19.952 11.5038 19.632 11.5039 19.5039C11.5037 19.3362 11.3837 19.2559 11.1279 19.2559V19.248C9.99985 19.248 7.63184 17.4394 7.63184 14.6074C7.63157 14.1117 7.32771 13.6078 6.7041 13.4238C6.20027 13.2719 5.48041 13.0476 5.02441 13.0234ZM9.96777 13.8232C9.62396 13.7914 9.36834 13.9922 9.4082 14.5918C9.48022 15.5037 9.84803 16.216 10.4639 16.9199C11.1918 17.7518 12.1519 18.232 13.1758 18.208C14.303 18.184 14.3835 17.984 14.3916 17.832C14.3915 17.6803 14.3193 17.5915 14.1914 17.5596V17.5674C13.4633 17.3991 12.2399 16.607 11.96 14.5996C11.9039 14.2239 11.6958 14.0396 11.376 13.9756C10.952 13.8876 10.2077 13.8472 9.96777 13.8232ZM13.8154 14.2793C13.8025 14.2794 13.52 14.2866 13.5195 14.5674C13.5275 15.1273 13.8483 15.6077 14.2402 15.9277C14.5682 16.1996 14.968 16.3437 15.4238 16.3438C15.8238 16.3357 15.8717 16.048 15.6797 15.96C15.3597 15.8079 14.9435 15.4716 14.8555 14.7119H14.8477C14.8395 14.6234 14.7676 14.2875 14.5361 14.2793H13.8154ZM17.8721 9.62402C14.6244 9.62402 13.7762 11.2558 13.5361 12.3438C13.4242 12.8717 13.7441 12.9118 14.04 12.9678C14.456 13.0397 14.7923 12.9752 14.9443 12.5752C15.4003 11.3355 16.0245 10.1201 18 10.1201C18.1998 10.1201 18.3756 9.99195 18.376 9.87207C18.3757 9.75218 18.2475 9.62402 17.8799 9.62402H17.8721ZM17 7C15.9686 7 14.9371 7.12758 14 7.3584C13.1057 7.57868 12.2969 7.89264 11.6562 8.2793C10.9524 8.7032 10.4082 9.21578 10.0322 9.80762C9.72828 10.2876 9.52809 10.8083 9.45605 11.3682C9.43209 11.5526 9.41699 12.1274 10.0244 12.2793C10.4004 12.3752 10.9919 12.4159 11.3838 12.4639C12.0231 12.5358 12.1997 11.8252 12.2559 11.7041C12.7599 10.3123 13.5121 9.37572 14.584 8.75977C15.2379 8.3848 16.0277 8.13098 17 7.98828C17.6456 7.89354 18.372 7.84766 19.1924 7.84766C19.4646 7.84769 20.0957 7.87923 20.0957 7.56738C20.0948 7.32834 19.5982 7.19068 19 7.1123C18.1985 7.00728 17.2152 7.00781 17 7.00781V7ZM17 4.3623C15.344 4.16626 13.6642 4.15784 12.0322 4.32812C10.5939 4.48097 8.98789 4.83842 7.58984 5.5752C6.13428 6.34233 4.90391 7.52068 4.32031 9.30371C4.20032 9.6637 3.98414 10.9837 5.24805 11.3037C5.65599 11.4077 6.07197 11.5919 6.50391 11.6719C7.73536 11.8958 8.00013 10.7288 8.07227 10.4961C8.14422 10.2723 8.22439 10.0558 8.32031 9.83203C8.71231 8.99216 9.29604 8.27947 9.95996 7.72754C11.3359 6.5757 13.048 6.03157 14.7119 5.76758C15.6799 5.61558 16.6482 5.5512 17.6162 5.5752C18.163 5.58712 18.6192 5.60555 19 5.62402C19.4164 5.64421 19.743 5.665 20 5.68164C20.7697 5.7315 20.916 5.73904 20.9844 5.54395C21.0959 5.22422 20.568 5.08804 20.376 5.04004C19.9227 4.9092 19.4634 4.79399 19 4.69434C18.3404 4.55252 17.6721 4.44187 17 4.3623Z" fill="currentColor"/>
+													</g>
+													<defs>
+														<clipPath id="clip0_16230_3343">
+															<rect width="24" height="24" fill="white"/>
+														</clipPath>
+													</defs>
+												</svg>
+											</div>
 											<span className="font-medium">
 												Continue with Crowdin
 											</span>
 										</div>
-										<div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-gray-100 dark:via-gray-800 to-transparent group-hover:translate-x-full transition-transform duration-700" />
+										<div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-gray-100/10 dark:via-white to-transparent group-hover:translate-x-full transition-transform duration-700" />
 									</motion.button>
 								)}
 
@@ -278,7 +283,7 @@ export function LoginModal({
 										whileTap={{ scale: 0.98 }}
 										onClick={() => handleOAuthClick('github')}
 										// disabled={isLoading}
-										className="w-full group relative overflow-hidden rounded-xl bg-gray-900 dark:bg-bg-1 p-4 text-white transition-all hover:bg-gray-800 dark:hover:bg-[#1a1e22] border border-gray-800 dark:border-bg-4 disabled:opacity-50 disabled:cursor-not-allowed"
+										className="w-full group relative overflow-hidden rounded-lg bg-gray-900 dark:bg-bg-1 p-4 text-white transition-all hover:bg-gray-800 dark:hover:bg-[#1a1e22] border border-gray-800 dark:border-bg-4 disabled:opacity-50 disabled:cursor-not-allowed"
 									>
 									<div className="relative z-10 flex items-center justify-center gap-3">
 										<svg
@@ -306,7 +311,7 @@ export function LoginModal({
 									whileTap={{ scale: 0.98 }}
 									onClick={() => handleOAuthClick('google')}
 									// disabled={isLoading}
-									className="w-full group relative overflow-hidden rounded-xl bg-white dark:bg-bg-4 p-4 text-gray-800 dark:text-text-primary transition-all hover:bg-gray-50 dark:hover:bg-bg-4/80 border border-gray-200 dark:border-border-primary disabled:opacity-50 disabled:cursor-not-allowed"
+									className="w-full group relative overflow-hidden rounded-lg bg-white dark:bg-bg-4 p-4 text-gray-800 dark:text-text-primary transition-all hover:bg-gray-50 dark:hover:bg-bg-4/80 border border-gray-200 dark:border-border-primary disabled:opacity-50 disabled:cursor-not-allowed"
 								>
 									<div className="relative z-10 flex items-center justify-center gap-3">
 										<svg
@@ -334,7 +339,7 @@ export function LoginModal({
 											Continue with Google
 										</span>
 									</div>
-									<div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-gray-100 dark:via-gray-800 to-transparent group-hover:translate-x-full transition-transform duration-700" />
+									<div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-gray-100 dark:via-gray-600 to-transparent group-hover:translate-x-full transition-transform duration-700" />
 								</motion.button>
 								)}
 
@@ -439,7 +444,7 @@ export function LoginModal({
 											disabled={isLoading}
 											className="w-full bg-primary hover:bg-primary/90 text-primary-foreground p-3 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
 										>
-											{isLoading 
+											{isLoading
 												? (mode === 'register' ? 'Creating account...' : 'Signing in...')
 												: (mode === 'register' ? 'Create account' : 'Sign in')
 											}
@@ -464,8 +469,8 @@ export function LoginModal({
 											}
 											className="text-sm text-text-tertiary hover:text-text-primary transition-colors"
 										>
-											{mode === 'login' 
-												? "Don't have an account? Sign up" 
+											{mode === 'login'
+												? "Don't have an account? Sign up"
 												: "Already have an account? Sign in"
 											}
 										</button>

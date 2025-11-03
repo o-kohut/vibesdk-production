@@ -1,9 +1,9 @@
 import { useState, useCallback } from 'react';
-import { 
-  Settings, 
-  Rocket, 
-  Wrench, 
-  Code, 
+import {
+  Settings,
+  Rocket,
+  Wrench,
+  Code,
   Bug,
   Brain,
   Search,
@@ -29,7 +29,7 @@ export const WORKFLOW_TABS = {
     patterns: ['template', 'blueprint', 'conversational']
   },
   planning: {
-    id: 'planning', 
+    id: 'planning',
     label: 'Planning',
     icon: Brain,
     description: 'Project planning and setup',
@@ -37,7 +37,7 @@ export const WORKFLOW_TABS = {
   },
   coding: {
     id: 'coding',
-    label: 'Coding', 
+    label: 'Coding',
     icon: Code,
     description: 'Development and implementation',
     patterns: ['implementation', 'file', 'regeneration']
@@ -45,7 +45,7 @@ export const WORKFLOW_TABS = {
   debugging: {
     id: 'debugging',
     label: 'Debugging',
-    icon: Bug, 
+    icon: Bug,
     description: 'Code fixing and review',
     patterns: ['fixer', 'fix', 'review', 'debug']
   },
@@ -64,60 +64,60 @@ const categorizeAgent = (agentKey: string): string => {
   const specificMappings: Record<string, string> = {
     // Quick Start - Most commonly used
     'templateSelection': 'quickstart',
-    'blueprint': 'quickstart', 
+    'blueprint': 'quickstart',
     'conversationalResponse': 'quickstart',
-    
+
     // Planning - Project planning and setup
     'phaseGeneration': 'planning',
     'projectSetup': 'planning',
-    
-    // Coding - Development and implementation 
+
+    // Coding - Development and implementation
     'phaseImplementation': 'coding',        // Fix: was going to planning due to "phase"
     'firstPhaseImplementation': 'coding',   // Fix: was going to planning due to "phase"
     'fileRegeneration': 'coding',           // Fix: was going to planning due to "generation"
-    
+
     // Debugging - Code fixing and review
     'realtimeCodeFixer': 'debugging',
     'fastCodeFixer': 'debugging',
     'codeReview': 'debugging',
-    
+
     // Advanced - Specialized operations
     'screenshotAnalysis': 'advanced'
   };
-  
+
   // Check specific mappings first
   if (specificMappings[agentKey]) {
     return specificMappings[agentKey];
   }
-  
+
   // Fallback to pattern matching for unknown agents (future-proofing)
   const key = agentKey.toLowerCase();
-  
+
   // More targeted pattern matching to avoid conflicts
   if (key.includes('template') || key.includes('selection')) return 'quickstart';
   if (key.includes('blueprint') || key.includes('architect')) return 'quickstart';
   if (key.includes('conversation') || key.includes('chat') || key.includes('response')) return 'quickstart';
-  
+
   if (key.includes('project') && key.includes('setup')) return 'planning';
   if (key.includes('suggestion') && key.includes('process')) return 'planning';
   if (key.includes('planning') || key.includes('plan')) return 'planning';
-  
+
   if (key.includes('implementation') || key.includes('implement')) return 'coding';
   if (key.includes('regenerat') || key.includes('regen')) return 'coding';
   if (key.includes('code') && key.includes('gen')) return 'coding';
-  
+
   if (key.includes('fixer') || key.includes('fix')) return 'debugging';
   if (key.includes('debug') || key.includes('review')) return 'debugging';
   if (key.includes('lint') || key.includes('check')) return 'debugging';
-  
+
   if (key.includes('screenshot') || key.includes('image') || key.includes('vision')) return 'advanced';
   if (key.includes('analysis') || key.includes('analyz')) return 'advanced';
-  
+
   // Default to advanced for completely unknown agents
   return 'advanced';
 };
 
-// Frontend-specific agent display interface 
+// Frontend-specific agent display interface
 export interface AgentDisplayConfig {
   key: string;
   name: string;
@@ -143,7 +143,7 @@ export function ModelConfigTabs({
   defaultConfigs,
   loadingConfigs,
   onSaveConfig,
-  onTestConfig, 
+  onTestConfig,
   onResetConfig,
   onResetAllConfigs,
   testingConfig,
@@ -162,7 +162,7 @@ export function ModelConfigTabs({
 
   // Get agents for a specific tab using dynamic categorization
   const getAgentsForTab = useCallback((tabId: string) => {
-    return filteredAgentConfigs.filter(config => 
+    return filteredAgentConfigs.filter(config =>
       categorizeAgent(config.key) === tabId
     );
   }, [filteredAgentConfigs]);
@@ -187,10 +187,10 @@ export function ModelConfigTabs({
 
   // Handle bulk test all configured agents
   const handleTestAllConfigured = async () => {
-    const customizedConfigs = agentConfigs.filter(config => 
+    const customizedConfigs = agentConfigs.filter(config =>
       modelConfigs[config.key]?.isUserOverride
     );
-    
+
     if (customizedConfigs.length === 0) {
       toast.info('No customized configurations to test');
       return;
@@ -230,7 +230,7 @@ export function ModelConfigTabs({
             Customize AI model settings for different operations. Organized by workflow stage.
           </p>
         </div>
-        
+
         <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
           {/* Search */}
           <div className="relative">
@@ -242,7 +242,7 @@ export function ModelConfigTabs({
               className="pl-9 w-full sm:w-64 dark:bg-bg-1 bg-bg-4"
             />
           </div>
-          
+
           {/* Action buttons */}
           <div className="flex gap-2">
             <Button
@@ -254,7 +254,7 @@ export function ModelConfigTabs({
               <Play className="h-4 w-4" />
               Test All
             </Button>
-            
+
             <Button
               variant="outline"
               size="sm"
@@ -275,15 +275,15 @@ export function ModelConfigTabs({
           {Object.values(WORKFLOW_TABS).map((tab) => {
             const Icon = tab.icon;
             const customizedCount = getCustomizedCountForTab(tab.id);
-            
+
             return (
-              <TabsTrigger 
-                key={tab.id} 
+              <TabsTrigger
+                key={tab.id}
                 value={tab.id}
                 className="flex flex-col gap-1 py-1 relative h-[calc(100%-4px)] min-h-[calc(100%-4px)] justify-center"
               >
                 <div className="flex items-center gap-2">
-                  <Icon className="h-4 w-4" />
+                  <Icon className="h-4 w-4" />te
                   <span className="hidden sm:inline">{tab.label}</span>
                 </div>
                 {customizedCount > 0 && (
@@ -298,7 +298,7 @@ export function ModelConfigTabs({
 
         {Object.values(WORKFLOW_TABS).map((tab) => {
           const agents = getAgentsForTab(tab.id);
-          
+
           return (
             <TabsContent key={tab.id} value={tab.id} className="mt-6">
               <div className="space-y-4">

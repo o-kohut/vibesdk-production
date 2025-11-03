@@ -1,9 +1,10 @@
 @import 'tailwindcss';
 @import "tw-animate-css";
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans:ital,wght@0,100..900;1,100..900&family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap');
 
 @font-face{
   font-family: "departureMono";
-  src:  url('./assets/fonts/DepartureMono-Regular.woff') 
+  src:  url('./assets/fonts/DepartureMono-Regular.woff')
 }
 
 /* Subtle chat edge throb effect - Crowdin green theme */
@@ -101,11 +102,11 @@
 		var(--input);
 	--color-ring:
 		var(--ring);
-	--shadow-textarea:
-		6px 6px 13px 0px rgba(0, 0, 0, 0.04),
-		24px 24px 24px 0px rgba(0, 0, 0, 0.03),
-		53px 53px 32px 0px rgba(0, 0, 0, 0.02),
-		0px 0px 0px 1px rgba(217, 217, 217, 0.2);
+	--color-foreground: var(--foreground);
+	--color-background: var(--background);
+	--color-primary: var(--build-chat-colors-brand-primary);
+	--color-primary-foreground: var(--primary-foreground);
+	--color-muted-foreground: var(--muted-foreground);
 	--color-bg-1: var(--build-chat-colors-bg-1);
 	--color-bg-2: var(--build-chat-colors-bg-2);
 	--color-bg-3: var(--build-chat-colors-bg-3);
@@ -121,14 +122,33 @@
 	--color-text-primary: var(--build-chat-colors-text-primary);
 	--color-text-secondary: var(--build-chat-colors-text-secondary);
 	--color-text-tertiary: var(--build-chat-colors-text-tertiary);
-
-	--shadow-textarea:
-		6px 6px 13px 0px rgba(0, 0, 0, 0.04),
-		24px 24px 24px 0px rgba(0, 0, 0, 0.03),
-		53px 53px 32px 0px rgba(0, 0, 0, 0.02),
-		0px 0px 0px 1px rgba(217, 217, 217, 0.2);
 	--animate-typing-dot: typing-dot 1.2s ease-in-out infinite;
 	--animate-shake: shake 1s ease-in-out;
+
+	--color-gray-50: #FAFAFA;
+	--color-gray-100: #EEEFEF;
+	--color-gray-200: #D4D6D7;
+	--color-gray-300: #A8ADAF;
+	--color-gray-400: #7D8488;
+	--color-gray-500: #515B60;
+	--color-gray-600: #2F3A40;
+	--color-gray-700: #263238;
+	--color-gray-800: #191918;
+	--color-gray-900: #070709;
+
+	--color-blue-500: #72BCEB;
+
+	--color-teal-100: #E2F3EB;
+	--color-teal-200: #CEEDDD;
+	--color-teal-300: #BDE4D3;
+	--color-teal-400: #A0D9C0;
+	--color-teal-500: #56C49D;
+
+	--color-purple-100: #F6F1FF;
+	--color-purple-200: #EEE7FD;
+	--color-purple-300: #E3D6FF;
+	--color-purple-400: #DDC9FF;
+	--color-purple-500: #C99EFF;
 }
 
 
@@ -143,7 +163,12 @@
 		oklch(0.922 0 0);
 	--ring:
 		oklch(0.63 0.15 144.19);
-	--build-accent-color: oklch(0.63 0.15 144.19); /* Crowdin green */
+	--background: oklch(1 0 0);
+	--foreground: oklch(30.87% .0195 229.78); /* #263238 */
+	--primary-foreground: oklch(0.985 0 0);
+	--muted: oklch(0.97 0 0);
+	--muted-foreground: oklch(0.556 0 0);
+	--build-accent-color: oklch(0.97 0 0); /* #f5f5f5 */
 	--build-chat-colors-bg-1: #e7e7e7;
 	--build-chat-colors-bg-2: #f6f6f6;
 	--build-chat-colors-bg-3: #fbfbfc;
@@ -152,13 +177,14 @@
 	--build-chat-colors-border-secondary: #eeeeee;
 	--build-chat-colors-border-tertiary: #eeeeee;
 	--build-chat-colors-danger: #950000cc;
-	--build-chat-colors-brand-heavy: oklch(0.63 0.15 144.19); /* Crowdin green */
-	--build-chat-colors-brand-primary: oklch(0.63 0.15 144.19); /* Crowdin green */
+	--build-chat-colors-brand-heavy: oklch(30.87% .0195 229.78); /* #263238 */
+	--build-chat-colors-brand-primary: oklch(30.87% .0195 229.78); /* #263238 */
 	--build-chat-colors-brand-subtle: oklch(0.7 0.12 144.19); /* Lighter Crowdin green */
 	--build-chat-colors-text-inverted: #ffffff;
 	--build-chat-colors-text-primary: oklch(0.3087 0.0195 229.78);
-	--build-chat-colors-text-secondary: oklch(0.46 0.02 231.35);
+	--build-chat-colors-text-secondary: var(--muted-foreground);
 	--build-chat-colors-text-tertiary: oklch(0.55 0.01 286);
+	--default-font-family: var(--font-body);
 }
 
 .dark {
@@ -170,20 +196,26 @@
 		oklch(1 0 0 / 15%); /* Input background */
 	--ring:
 		oklch(0.7 0.17 144.29);
-
-	--build-chat-colors-bg-1: #16191d;
-	--build-chat-colors-bg-2: oklch(0.26 0.01 258.42);
-	--build-chat-colors-bg-3: oklch(0.37 0.01 286);
-	--build-chat-colors-bg-4: oklch(0.37 0.01 286);
+	--background: oklch(21.20% 0.009 255.61); /* #16191d; */
+	--foreground: oklch(0.985 0 0);
+	--primary-foreground: oklch(0.205 0 0);
+	--muted: oklch(0.269 0 0);
+	--muted-foreground: oklch(0.708 0 0);
+	--accent-foreground: oklch(0.985 0 0);
+	--build-accent-color: oklch(0.269 0 0);
+	--build-chat-colors-bg-1: oklch(21.20% 0.009 255.61); /* #16191d; */
+	--build-chat-colors-bg-2: oklch(0.22 0.01 245.56);
+	--build-chat-colors-bg-3: oklch(0.23 0.01 255.56);
+	--build-chat-colors-bg-4: oklch(0.24 0.01 260.7);
 	--build-chat-colors-border-primary: oklch(1 0 0 / 10%);
 	--build-chat-colors-border-secondary: oklch(1 0 0 / 15%);
 	--build-chat-colors-border-tertiary: oklch(1 0 0 / 15%);
-	--build-chat-colors-brand-heavy: oklch(0.7 0.17 144.29); /* Crowdin green - brighter for dark mode */
-	--build-chat-colors-brand-primary: oklch(0.7 0.17 144.29); /* Crowdin green - brighter for dark mode */
-	--build-chat-colors-brand-subtle: oklch(0.65 0.14 144.29); /* Slightly dimmer Crowdin green */
+	--build-chat-colors-brand-heavy: var(--color-gray-100); /* Crowdin green - brighter for dark mode */
+	--build-chat-colors-brand-primary: var(--color-gray-200); /* Crowdin green - brighter for dark mode */
+	--build-chat-colors-brand-subtle: var(--color-gray-300); /* Slightly dimmer Crowdin green */
 	--build-chat-colors-text-inverted: #000000;
 	--build-chat-colors-text-primary: oklch(0.97 0.00 265);
-	--build-chat-colors-text-secondary: oklch(0.87 0 0);
+	--build-chat-colors-text-secondary: var(--muted-foreground);
 	--build-chat-colors-text-tertiary: oklch(0.71 0.01 286);
 
 	--shadow-dialog:
@@ -204,21 +236,23 @@
 	* {
 		@apply border-border-primary outline-ring/50;
 	}
+
   	body {
-    	@apply bg-bg-3 text-text-primary h-full;
+    	@apply bg-background text-foreground h-full;
 	}
+
 	button {
 		@apply cursor-pointer;
 	}
+
 	select {
 		@apply cursor-pointer;
 	}
 }
 
 @theme {
-	--font-sans:
-		'Inter', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji',
-		'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+	--font-heading: "Plus Jakarta Sans", sans-serif;
+	--font-body: "Noto Sans", sans-serif;
 
 	--color-brand: #0092b8;
 	--color-text: #000;
@@ -238,6 +272,7 @@
 		0px 0px 0px 1px rgba(217, 217, 217, 0.2);
 	--shadow-soft-layered:
 		3px 3px 13px 0px rgba(0, 0, 0, 0.04), 24px 24px 24px 0px rgba(0, 0, 0, 0.03);
+
 }
 
 
