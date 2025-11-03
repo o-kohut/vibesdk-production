@@ -37,7 +37,11 @@ export abstract class BaseAgentService {
     getAgentId() {
         return this.getState().inferenceContext.agentId
     }
-    
+
+    getUserId() {
+        return this.getState().inferenceContext.userId
+    }
+
     /**
      * Get fresh logger instance (DO-compatible)
      */

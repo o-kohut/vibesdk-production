@@ -60,11 +60,13 @@ export class DeploymentManager extends BaseAgentService implements IDeploymentMa
             const logger = this.getLog();
             logger.info('Creating sandbox service client', { 
                 sessionId: this.getSessionId(), 
-                agentId: this.getAgentId() 
+                agentId: this.getAgentId(),
+                userId: this.getUserId()
             });
             this.cachedSandboxClient = getSandboxService(
                 this.getSessionId(), 
-                this.getAgentId()
+                this.getAgentId(),
+                this.getUserId()
             );
         }
         return this.cachedSandboxClient;
