@@ -1,15 +1,11 @@
-import type { Blueprint, ClientReportedErrorType, PhaseConceptType ,
+import type { Blueprint, PhaseConceptType ,
     FileOutputType,
 } from '../schemas';
-import type { TemplateDetails } from '../../services/sandbox/sandboxTypes';
 // import type { ScreenshotData } from './types';
 import type { ConversationMessage } from '../inferutils/common';
 import type { InferenceContext } from '../inferutils/config.types';
 
 export interface FileState extends FileOutputType {
-    lasthash: string;
-    lastmodified: number;
-    unmerged: string[];
     lastDiff: string;
 }
 
@@ -23,7 +19,6 @@ export enum CurrentDevState {
     PHASE_GENERATING,
     PHASE_IMPLEMENTING,
     REVIEWING,
-    FILE_REGENERATING,
     FINALIZING,
 }
 
@@ -31,18 +26,15 @@ export const MAX_PHASES = 12;
 
 export interface CodeGenState {
     blueprint: Blueprint;
+    projectName: string,
     query: string;
-    generatedFilesMap: Record<string, FileState >;
-    generationPromise?: Promise<void>;
+    generatedFilesMap: Record<string, FileState>;
     generatedPhases: PhaseState[];
     commandsHistory?: string[]; // History of commands run
     lastPackageJson?: string; // Last package.json file contents
-    templateDetails: TemplateDetails;   // TODO: Remove this from state and rely on directly fetching from sandbox
+    templateName: string;
     sandboxInstanceId?: string;
-    // previewURL?: string;
-    // tunnelURL?: string;
-    clientReportedErrors: ClientReportedErrorType[];
-    // latestScreenshot?: ScreenshotData; // Store captured screenshot
+    
     shouldBeGenerating: boolean; // Persistent flag indicating generation should be active
     mvpGenerated: boolean;
     reviewingInitiated: boolean;
@@ -59,4 +51,6 @@ export interface CodeGenState {
     conversationMessages: ConversationMessage[];
     projectUpdatesAccumulator: string[];
     inferenceContext: InferenceContext;
+
+    lastDeepDebugTranscript: string | null;
 } 

@@ -240,10 +240,9 @@ describe('Unified Diff - Comprehensive LLM Resilience Tests', () => {
 +@@ real content @@
  line3`;
       
-      // This is a known limitation: @@ in content can confuse the parser
-      // The parser returns the original content when it can't apply the diff
+      // Fixed: regex now only matches @@ at line start, so content with @@ works correctly
       const result = applyDiff(original, diff);
-      expect(result).toBe(original); // Falls back to original
+      expect(result).toBe('line1\n@@ real content @@\nline3');
     });
 
     it('should handle backslash escapes', () => {
@@ -506,9 +505,9 @@ describe('Unified Diff - Comprehensive LLM Resilience Tests', () => {
  line1
 -line2`;
       // Diff is cut off mid-hunk
-      // The resilient parser returns original content rather than throwing
+      // The resilient parser applies what it can (LLM-friendly behavior)
       const result = applyDiff(original, diff);
-      expect(result).toBe(original);
+      expect(result).toBe('line1\nline3'); // Applies the deletion
     });
 
     it('should handle diffs with only additions', () => {

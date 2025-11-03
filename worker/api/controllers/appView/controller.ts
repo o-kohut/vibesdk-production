@@ -2,15 +2,17 @@
 import { BaseController } from '../baseController';
 import { ApiResponse, ControllerResponse } from '../types';
 import type { RouteContext } from '../../types/route-context';
-import { getAgentStub } from '../../../agents';
+import { getAgentStubLightweight } from '../../../agents';
 import { AppService } from '../../../database/services/AppService';
 import { 
     AppDetailsData, 
-    AppStarToggleData, 
+    AppStarToggleData,
+    GitCloneTokenData,
 } from './types';
 import { AgentSummary } from '../../../agents/core/types';
 import { createLogger } from '../../../logger';
-import { buildUserWorkerUrl } from 'worker/utils/urls';
+import { buildUserWorkerUrl, buildGitCloneUrl } from 'worker/utils/urls';
+import { JWTUtils } from '../../../utils/jwtUtils';
 
 export class AppViewController extends BaseController {
     static logger = createLogger('AppViewController');
@@ -55,7 +57,8 @@ export class AppViewController extends BaseController {
             let previewUrl: string = '';
             
             try {
-                const agentStub = await getAgentStub(env, appResult.id, true, this.logger);
+                // Use lightweight stub for read-only operations (faster - skips template loading)
+                const agentStub = await getAgentStubLightweight(env, appResult.id);
                 agentSummary = await agentStub.getSummary();
 
                 previewUrl = await agentStub.getPreviewUrlCache();
@@ -159,4 +162,47 @@ export class AppViewController extends BaseController {
     //         return AppViewController.createErrorResponse<ForkAppData>('Internal server error', 500);
     //     }
     // }
+
+    /**
+     * Generate short-lived token for git clone (private repos only)
+     * POST /api/apps/:id/git/token
+     */
+    static async generateGitCloneToken(
+        _request: Request,
+        env: Env,
+        _ctx: ExecutionContext,
+        context: RouteContext
+    ): Promise<ControllerResponse<ApiResponse<GitCloneTokenData>>> {
+        try {
+            const user = context.user!;
+            const appId = context.pathParams.id;
+            
+            if (!appId) {
+                return AppViewController.createErrorResponse<GitCloneTokenData>('App ID is required', 400);
+            }
+
+            // Generate short-lived JWT (1 hour)
+            const jwtUtils = JWTUtils.getInstance(env);
+            const expiresIn = 3600; // 1 hour
+            const token = await jwtUtils.createToken({
+                sub: user.id,
+                email: user.email,
+                type: 'access' as const,
+                sessionId: 'git-clone-' + appId, // Special session for git operations
+            }, expiresIn);
+
+            const responseData: GitCloneTokenData = {
+                token,
+                expiresIn,
+                expiresAt: new Date(Date.now() + expiresIn * 1000).toISOString(),
+                cloneUrl: buildGitCloneUrl(env, appId, token)
+            };
+
+            return AppViewController.createSuccessResponse(responseData);
+        } catch (error) {
+            this.logger.error('Error generating git clone token:', error);
+            return AppViewController.createErrorResponse<GitCloneTokenData>('Failed to generate token', 500);
+        }
+    }
+
 }

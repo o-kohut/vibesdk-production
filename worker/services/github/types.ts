@@ -40,6 +40,8 @@ export interface CreateRepositoryResult {
     success: boolean;
     repository?: GitHubRepository;
     error?: string;
+    alreadyExists?: boolean;
+    repositoryName?: string;
 }
 
 export interface GitHubTokenResult {

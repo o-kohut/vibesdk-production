@@ -224,16 +224,16 @@ export function ModelConfigInfo({ configs, onRequestConfigs, loading }: ModelCon
 
   return (
     <>
-      <Button
-        variant="outline"
-        size="sm"
+      <button
         onClick={handleOpen}
-        className="gap-2 text-xs"
+        className="group relative flex items-center gap-1.5 p-1.5 group-hover:pl-2 group-hover:pr-2.5 rounded-full group-hover:rounded-md transition-all duration-300 ease-in-out hover:bg-bg-4 border border-transparent hover:border-border-primary hover:shadow-sm overflow-hidden"
         title="View current model configurations"
       >
-        <Info className="size-3" />
-        <span className="hidden sm:inline">Model Info</span>
-      </Button>
+        <Info className="size-3.5 text-text-primary/60 group-hover:text-brand-primary transition-colors duration-300 flex-shrink-0" />
+        <span className="max-w-0 group-hover:max-w-[75px] opacity-0 group-hover:opacity-100 overflow-hidden transition-all duration-300 ease-in-out whitespace-nowrap text-xs font-medium text-text-primary">
+          Model Info
+        </span>
+      </button>
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent className="max-w-4xl w-[90vw] max-h-[90vh] overflow-y-auto">

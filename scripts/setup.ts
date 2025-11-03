@@ -857,14 +857,47 @@ class SetupManager {
 		try {
 			// Check API token permissions first
 			console.log('🔍 Checking API token permissions...');
-			await this.checkTokenPermissions();
+			const permissionCheck = await this.checkTokenPermissions();
 
-			try {
-				aiGatewayToken = await this.ensureAIGatewayToken();
-				tokenCreated = !!aiGatewayToken;
-			} catch (tokenErr) {
-				tokenError = tokenErr instanceof Error ? tokenErr.message : String(tokenErr);
-				console.warn(`⚠️  Token creation issue: ${tokenError}`);
+			// Check if token already exists in config
+			const existingToken = this.config.devVars.CLOUDFLARE_AI_GATEWAY_TOKEN;
+			const hasExistingToken = existingToken && existingToken !== 'optional-your-cf-ai-gateway-token';
+
+			if (hasExistingToken) {
+				// Use existing configured token
+				aiGatewayToken = existingToken;
+				console.log('✅ Using existing AI Gateway token from configuration');
+			} else if (permissionCheck.hasAIGatewayAccess) {
+				// Main token has permissions, use it directly - no need to create a specialized token
+				aiGatewayToken = this.config.apiToken;
+				this.config.devVars.CLOUDFLARE_AI_GATEWAY_TOKEN = this.config.apiToken;
+				console.log('✅ Main API token has AI Gateway permissions, using it directly');
+			} else {
+				// Main token doesn't have permissions, try to create a specialized token
+				console.log('🔐 Main token lacks AI Gateway permissions, creating specialized token...');
+				try {
+					aiGatewayToken = await this.ensureAIGatewayToken();
+					tokenCreated = !!aiGatewayToken;
+					
+					if (aiGatewayToken) {
+						this.config.devVars.CLOUDFLARE_AI_GATEWAY_TOKEN = aiGatewayToken;
+						console.log('✅ Created and using specialized AI Gateway token');
+					} else {
+						// Specialized token creation failed, fallback to main token with warning
+						console.warn('⚠️  WARNING: Specialized token creation failed');
+						console.warn('   Falling back to main API token, but it may not have AI Gateway permissions!');
+						console.warn('   You may experience 401 errors when using AI Gateway.');
+						console.warn('   Please verify your token has: AI Gateway Read, Edit, and Run permissions.');
+						this.config.devVars.CLOUDFLARE_AI_GATEWAY_TOKEN = this.config.apiToken;
+						aiGatewayToken = this.config.apiToken;
+					}
+				} catch (tokenErr) {
+					tokenError = tokenErr instanceof Error ? tokenErr.message : String(tokenErr);
+					console.warn(`⚠️  Token creation failed: ${tokenError}`);
+					console.warn('   Falling back to main API token');
+					this.config.devVars.CLOUDFLARE_AI_GATEWAY_TOKEN = this.config.apiToken;
+					aiGatewayToken = this.config.apiToken;
+				}
 			}
 
 			// Check if gateway exists first
@@ -919,19 +952,80 @@ class SetupManager {
 
 	private async checkTokenPermissions(): Promise<{ hasAIGatewayAccess: boolean; tokenInfo?: any }> {
 		try {
+			// Step 1: Verify the token is valid and active
 			const verifyResponse = await fetch('https://api.cloudflare.com/client/v4/user/tokens/verify', {
 				headers: { Authorization: `Bearer ${this.config.apiToken}` },
 			});
 
 			if (!verifyResponse.ok) {
-				console.warn('⚠️  Could not verify API token permissions');
+				console.warn('⚠️  Could not verify API token');
 				return { hasAIGatewayAccess: false };
 			}
 
-			const data = await verifyResponse.json();
-			return { hasAIGatewayAccess: true, tokenInfo: data.result };
+			const verifyData = await verifyResponse.json();
+			const tokenStatus = verifyData.result?.status;
+
+			if (tokenStatus !== 'active') {
+				console.warn('⚠️  API token is not active');
+				return { hasAIGatewayAccess: false };
+			}
+
+			console.log('✅ API token is active and valid');
+
+			// Step 2: Check what AI Gateway permission groups exist (doesn't require special permissions)
+			try {
+				const permGroupsResponse = await fetch('https://api.cloudflare.com/client/v4/user/tokens/permission_groups?name=AI%20Gateway', {
+					headers: { Authorization: `Bearer ${this.config.apiToken}` },
+				});
+
+				if (permGroupsResponse.ok) {
+					const permData = await permGroupsResponse.json();
+					const aiGatewayPerms = permData.result || [];
+					if (aiGatewayPerms.length > 0) {
+						console.log(`ℹ️  Found ${aiGatewayPerms.length} AI Gateway permission group(s):`);
+						aiGatewayPerms.forEach((perm: any) => {
+							console.log(`   • ${perm.name} (${perm.id})`);
+						});
+					}
+				}
+			} catch (e) {
+				// Non-critical - just for informational purposes
+			}
+
+			// Step 3: Test AI Gateway Read permission by listing gateways
+			// Note: We can only test Read permission without side effects
+			// Edit permission will be tested at runtime when actually creating the gateway
+			const testResponse = await fetch(`https://api.cloudflare.com/client/v4/accounts/${this.config.accountId}/ai-gateway/gateways`, {
+				headers: { Authorization: `Bearer ${this.config.apiToken}` },
+			});
+
+			if (testResponse.ok) {
+				console.log('✅ Token has AI Gateway Read permission');
+				console.log('   Note: Edit permission will be verified when creating gateway');
+				return { hasAIGatewayAccess: true, tokenInfo: verifyData.result };
+			}
+
+			// Check specific error codes
+			if (testResponse.status === 403) {
+				console.warn('⚠️  Token does NOT have AI Gateway permissions (403 Forbidden)');
+				console.warn('   Required: AI Gateway Read + Edit + Run');
+				return { hasAIGatewayAccess: false, tokenInfo: verifyData.result };
+			}
+
+			if (testResponse.status === 404) {
+				// 404 means endpoint accessible but no gateways exist - token has Read permission
+				console.log('✅ Token has AI Gateway Read permission (no gateways yet)');
+				console.log('   Note: Edit permission will be verified when creating gateway');
+				return { hasAIGatewayAccess: true, tokenInfo: verifyData.result };
+			}
+
+			// Other errors - assume no access
+			console.warn(`⚠️  AI Gateway permission test failed with status ${testResponse.status}`);
+			console.warn('   Assuming no AI Gateway permissions');
+			return { hasAIGatewayAccess: false, tokenInfo: verifyData.result };
+
 		} catch (error) {
-			console.warn('⚠️  Token verification failed');
+			console.warn(`⚠️  Token permission check failed: ${error instanceof Error ? error.message : String(error)}`);
 			return { hasAIGatewayAccess: false };
 		}
 	}
@@ -1201,6 +1295,9 @@ class SetupManager {
 		content += '# Required secrets\n';
 		content += `JWT_SECRET="${this.config.devVars.JWT_SECRET}"\n`;
 		content += `WEBHOOK_SECRET="${this.config.devVars.WEBHOOK_SECRET}"\n`;
+		if (this.config.devVars.USE_TUNNEL_FOR_PREVIEW) {
+			content += `USE_TUNNEL_FOR_PREVIEW="${this.config.devVars.USE_TUNNEL_FOR_PREVIEW}"\n`;
+		}
 
 		// Worker configuration variables (preserved from existing .dev.vars)
 		if (workerConfigVarsToPreserve.size > 0) {
@@ -1265,6 +1362,7 @@ class SetupManager {
 			'CROWDIN_CLIENT_ID', 'CROWDIN_CLIENT_SECRET', 'CROWDIN_OAUTH_MANAGER_CLIENT_ID', 'CROWDIN_OAUTH_MANAGER_CLIENT_SECRET',
 			'GITHUB_EXPORTER_CLIENT_ID', 'GITHUB_EXPORTER_CLIENT_SECRET',
 			'JWT_SECRET', 'WEBHOOK_SECRET'
+			// Note: USE_TUNNEL_FOR_PREVIEW is intentionally excluded - it's dev-only
 		]);
 
 		let content = '';

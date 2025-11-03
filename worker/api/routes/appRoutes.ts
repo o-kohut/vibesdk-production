@@ -65,6 +65,14 @@ export function setupAppRoutes(app: Hono<AppEnv>): void {
     // Delete app - OWNER ONLY
     appRouter.delete('/:id', setAuthLevel(AuthConfig.ownerOnly), adaptController(AppController, AppController.deleteApp));
     
+    // ========================================
+    // GIT CLONE ROUTES
+    // ========================================
+    
+    // Generate git clone token for private repos - OWNER ONLY
+    appRouter.post('/:id/git/token', setAuthLevel(AuthConfig.ownerOnly), adaptController(AppViewController, AppViewController.generateGitCloneToken));
+    
+    
     // Mount the app router under /api/apps
     app.route('/api/apps', appRouter);
 }

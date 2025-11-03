@@ -60,9 +60,6 @@ export interface XmlParsingConfig {
     // Elements to stream content in real-time
     streamingElements?: string[];
     
-    // Case sensitivity for tag names
-    caseSensitive?: boolean;
-    
     // Whether to preserve whitespace
     preserveWhitespace?: boolean;
     
@@ -152,8 +149,8 @@ IMPORTANT:
      * Finalize XML parsing and return all extracted elements
      */
     finalizeXmlParsing(state: XmlParsingState): Map<string, XmlElement[]> {
-        // Try final parsing attempt on remaining buffer
-        if (state.contentBuffer.length > 0) {
+        // Try final parsing attempt on remaining buffer or incomplete elements
+        if (state.contentBuffer.length > 0 || state.elementStack.length > 0) {
             this.attemptFallbackExtraction(state);
         }
         
@@ -211,8 +208,8 @@ IMPORTANT:
             currentElement: null,
             extractedElements: new Map(),
             potentialTagBuffer: '',
-            targetElements: new Set((config.targetElements || []).map(t => config.caseSensitive ? t : t.toLowerCase())),
-            streamingElements: new Set((config.streamingElements || []).map(t => config.caseSensitive ? t : t.toLowerCase())),
+            targetElements: new Set((config.targetElements || []).map(t => t.toLowerCase())),
+            streamingElements: new Set((config.streamingElements || []).map(t => t.toLowerCase())),
             hasParsingErrors: false,
             errorMessages: [],
             rawXmlBuffer: ''
@@ -331,7 +328,7 @@ IMPORTANT:
         
         // Create new element
         const element: XmlElement = {
-            tagName: tagName,
+            tagName: tagName.toLowerCase(),
             attributes: attributes,
             content: '',
             isComplete: false,
@@ -404,7 +401,7 @@ IMPORTANT:
     ): boolean {
         // Create complete element
         const element: XmlElement = {
-            tagName: tagName,
+            tagName: tagName.toLowerCase(),
             attributes: attributes,
             content: '',
             isComplete: true,
@@ -448,8 +445,8 @@ IMPORTANT:
     }
     
     private handlePartialContent(state: XmlParsingState, callbacks: XmlStreamingCallbacks): void {
-        // If we have a current element and significant content, it might be partial content
-        if (state.currentElement && state.contentBuffer.length > 50) {
+        // Stream content immediately for responsive feedback
+        if (state.currentElement && state.contentBuffer.length > 0) {
             // Check if buffer might end with partial tag
             const hasPartialTag = state.contentBuffer.includes('<');
             

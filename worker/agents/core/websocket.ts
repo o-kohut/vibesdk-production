@@ -21,7 +21,7 @@ export function handleWebSocketMessage(agent: SimpleCodeGeneratorAgent, connecti
                 });
                 
                 // Check if generation is already active to avoid duplicate processes
-                if (agent.isGenerating) {
+                if (agent.isCodeGenerating()) {
                     logger.info('Generation already in progress, skipping duplicate request');
                     // sendToConnection(connection, WebSocketMessageResponses.GENERATION_STARTED, {
                     //     message: 'Code generation is already in progress'
@@ -37,51 +37,12 @@ export function handleWebSocketMessage(agent: SimpleCodeGeneratorAgent, connecti
                 }).finally(() => {
                     // Only clear shouldBeGenerating on successful completion
                     // (errors might want to retry, so this could be handled differently)
-                    if (!agent.isGenerating) {
+                    if (!agent.isCodeGenerating()) {
                         agent.setState({ 
                             ...agent.state, 
                             shouldBeGenerating: false 
                         });
                     }
-                });
-                break;
-            case WebSocketMessageRequests.CODE_REVIEW:
-                if (agent.isGenerating) {
-                    sendError(connection, 'Cannot perform code review while generating files');
-                    return;
-                }
-                sendToConnection(connection, WebSocketMessageResponses.CODE_REVIEW, {
-                    message: 'Starting code review'
-                });
-                agent.reviewCode().then(reviewResult => {
-                    if (!reviewResult) {
-                        sendError(connection, 'Failed to perform code review');
-                        return;
-                    }
-                    sendToConnection(connection, WebSocketMessageResponses.CODE_REVIEW, {
-                        review: reviewResult,
-                        issuesFound: reviewResult.issuesFound,
-                    });
-                    if (reviewResult.issuesFound && parsedMessage.autoFix === true) {
-                        for (const fileToFix of reviewResult.filesToFix) {
-                            const fileToRegenerate = agent.state.generatedFilesMap[fileToFix.filePath];
-                            if (!fileToRegenerate) {
-                                logger.warn(`File to fix not found in generated files: ${fileToFix.filePath}`);
-                                continue;
-                            }
-                            agent.regenerateFile(
-                                fileToRegenerate,
-                                fileToFix.issues,
-                                0
-                            ).catch((error: unknown) => {
-                                logger.error(`Error regenerating file ${fileToRegenerate.filePath}:`, error);
-                                sendError(connection, `Error regenerating file: ${error instanceof Error ? error.message : String(error)}`);
-                            });
-                        }
-                    }
-                }).catch(error => {
-                    logger.error('Error during code review:', error);
-                    sendError(connection, `Error during code review: ${error instanceof Error ? error.message : String(error)}`);
                 });
                 break;
             case WebSocketMessageRequests.DEPLOY:
@@ -104,10 +65,6 @@ export function handleWebSocketMessage(agent: SimpleCodeGeneratorAgent, connecti
                     logger.error('Error during preview deployment:', error);
                 });
                 break;
-            case WebSocketMessageRequests.RUNTIME_ERROR_FOUND:
-                logger.info(`Client reported errors: ${parsedMessage.data}`);
-                agent.setState({ ...agent.state, clientReportedErrors: parsedMessage.data });
-                break;
             case WebSocketMessageRequests.CAPTURE_SCREENSHOT:
                 agent.captureScreenshot(parsedMessage.data.url, parsedMessage.data.viewport).then((screenshotResult) => {
                     if (!screenshotResult) {
@@ -120,19 +77,21 @@ export function handleWebSocketMessage(agent: SimpleCodeGeneratorAgent, connecti
                 });
                 break;
             case WebSocketMessageRequests.STOP_GENERATION:
-                // Clear shouldBeGenerating flag when user manually stops
-                logger.info('Stopping code generation and clearing shouldBeGenerating flag');
+                logger.info('User requested to stop generation');
+                
+                // Cancel current inference operation
+                const wasCancelled = agent.cancelCurrentInference();
+                
+                // Clear shouldBeGenerating flag
                 agent.setState({ 
                     ...agent.state, 
                     shouldBeGenerating: false 
                 });
                 
-                // If there's an active generation, we should signal it to stop
-                // (This depends on how the generation process is implemented)
-                agent.isGenerating = false;
-                
                 sendToConnection(connection, WebSocketMessageResponses.GENERATION_STOPPED, {
-                    message: 'Code generation stopped by user'
+                    message: wasCancelled 
+                        ? 'Inference operation cancelled successfully'
+                        : 'No active inference to cancel'
                 });
                 break;
             case WebSocketMessageRequests.RESUME_GENERATION:
@@ -143,7 +102,7 @@ export function handleWebSocketMessage(agent: SimpleCodeGeneratorAgent, connecti
                     shouldBeGenerating: true 
                 });
                 
-                if (!agent.isGenerating) {
+                if (!agent.isCodeGenerating()) {
                     sendToConnection(connection, WebSocketMessageResponses.GENERATION_RESUMED, {
                         message: 'Code generation resumed'
                     });
@@ -218,7 +177,12 @@ export function handleWebSocketMessage(agent: SimpleCodeGeneratorAgent, connecti
             case WebSocketMessageRequests.GET_CONVERSATION_STATE:
                 try {
                     const state = agent.getConversationState();
-                    sendToConnection(connection, WebSocketMessageResponses.CONVERSATION_STATE, { state });
+                    const debugState = agent.getDeepDebugSessionState();
+                    logger.info('Conversation state retrieved', state);
+                    sendToConnection(connection, WebSocketMessageResponses.CONVERSATION_STATE, { 
+                        state,
+                        deepDebugSession: debugState
+                    });
                 } catch (error) {
                     logger.error('Error fetching conversation state:', error);
                     sendError(connection, `Error fetching conversation state: ${error instanceof Error ? error.message : String(error)}`);

@@ -96,6 +96,107 @@ export function extractCommands(rawOutput: string, onlyInstallCommands: boolean 
 	return filteredCommands;
 }
 
+/**
+ * Maximum number of commands to keep in bootstrap history
+ * Prevents unbounded growth while allowing sufficient dependency management
+ */
+export const MAX_BOOTSTRAP_COMMANDS = 50;
+
+/**
+ * Regex pattern for bootstrap commands with capture groups
+ * WHITELIST: Only commands that install/add/remove/update SPECIFIC packages
+ * Supports: scoped packages (@org/pkg), versions (pkg@1.2.3), ranges (^, ~, >, <, =), git URLs
+ */
+const BOOTSTRAP_COMMAND_PATTERN = /^(?:npm|yarn|pnpm|bun)\s+(add|install|remove|uninstall|update)\s+([\w@/.\-^~><=:]+)/;
+
+/**
+ * Check if a command is valid for bootstrap script.
+ * WHITELIST approach: Only allows package management commands with specific package names.
+ * 
+ * @returns true if command is valid for bootstrap, false otherwise
+ * 
+ * Valid examples:
+ * - "bun add react"
+ * - "npm install lodash@^4.17.21"
+ * - "bun add @cloudflare/workers@1.0.0"
+ * - "bun remove @types/node"
+ * - "npm update react-dom@~18.2.0"
+ * - "npm install package@>=1.0.0"
+ * 
+ * Invalid (rejected):
+ * - File operations: "rm -rf src/file.tsx", "mv file.txt", "cp -r dir"
+ * - Plain installs: "bun install", "npm install"
+ * - Run commands: "bun run build", "npm run dev"
+ * - Any non-package-manager commands
+ */
+export function isValidBootstrapCommand(command: string): boolean {
+	return BOOTSTRAP_COMMAND_PATTERN.test(command.trim());
+}
+
+/**
+ * Check if a command should NOT be saved to bootstrap.
+ * Inverse of isValidBootstrapCommand
+ */
+export function isBootstrapRuntimeCommand(command: string): boolean {
+	return !isValidBootstrapCommand(command);
+}
+
+/**
+ * Extract package operation key for deduplication.
+ * Assumes command has already been validated by isValidBootstrapCommand.
+ * 
+ * @example
+ * getPackageOperationKey("bun add react") -> "add:react"
+ * getPackageOperationKey("npm install lodash@^4.0.0") -> "install:lodash@^4.0.0"
+ * getPackageOperationKey("bun add @cloudflare/workers") -> "add:@cloudflare/workers"
+ */
+export function getPackageOperationKey(command: string): string | null {
+	const match = command.trim().match(BOOTSTRAP_COMMAND_PATTERN);
+	if (!match) return null;
+	
+	const [, action, pkg] = match;
+	return `${action}:${pkg}`;
+}
+
+/**
+ * Validate and clean bootstrap commands in a single pass.
+ * Validates, deduplicates, and limits size.
+ * 
+ * @param commands - Raw command list
+ * @param maxCommands - Maximum number of commands to keep (defaults to MAX_BOOTSTRAP_COMMANDS)
+ * @returns Cleaned command list with metadata about what was removed
+ */
+export function validateAndCleanBootstrapCommands(
+	commands: string[],
+	maxCommands: number = MAX_BOOTSTRAP_COMMANDS
+): { validCommands: string[]; invalidCommands: string[]; deduplicated: number } {
+	const seen = new Map<string, string>();
+	const invalidCommands: string[] = [];
+	let totalValid = 0;
+	
+	// validate + deduplicate
+	for (const cmd of commands) {
+		const key = getPackageOperationKey(cmd);
+		if (key) {
+			totalValid++;
+			seen.set(key, cmd); // Latest wins for duplicates
+		} else {
+			invalidCommands.push(cmd);
+		}
+	}
+	
+	// Extract deduplicated commands and apply size limit (keep most recent)
+	const deduplicated = Array.from(seen.values());
+	const validCommands = deduplicated.slice(-maxCommands);
+	const deduplicatedCount = totalValid - deduplicated.length;
+	
+	return {
+		validCommands,
+		invalidCommands,
+		deduplicated: deduplicatedCount
+	};
+}
+
 export function looksLikeCommand(text: string): boolean {
 	// Check if the text looks like a shell command
 	const commandIndicators = [

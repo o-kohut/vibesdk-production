@@ -29,6 +29,59 @@
   .chat-edge-throb { animation: none; }
 }
 
+/* Debug mode pulsing effect - red edges */
+@keyframes debug-pulse {
+  0%, 100% {
+    box-shadow:
+      inset 4px 0 12px rgba(239, 68, 68, 0.1),
+      inset -4px 0 12px rgba(239, 68, 68, 0.1);
+  }
+  50% {
+    box-shadow:
+      inset 4px 0 20px rgba(239, 68, 68, 0.2),
+      inset -4px 0 20px rgba(239, 68, 68, 0.2);
+  }
+}
+
+.animate-debug-pulse {
+  animation: debug-pulse 2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-debug-pulse { animation: none; }
+}
+
+/* Custom scrollbar for debug bubble */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(239, 68, 68, 0.3);
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(239, 68, 68, 0.5);
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(239, 68, 68, 0.4);
+}
+
+.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(239, 68, 68, 0.6);
+}
+
 @custom-variant dark (&:is(.dark *));
 @plugin '@tailwindcss/typography';
 @theme inline {

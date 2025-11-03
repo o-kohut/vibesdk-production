@@ -6,14 +6,13 @@ import path from 'path';
 
 import { cloudflare } from '@cloudflare/vite-plugin';
 import tailwindcss from '@tailwindcss/vite';
-// import { nodePolyfills } from 'vite-plugin-node-polyfills';
 
 // https://vite.dev/config/
 export default defineConfig({
 	optimizeDeps: {
 		exclude: ['format', 'editor.all'],
 		include: ['monaco-editor/esm/vs/editor/editor.api'],
-		force: true, // Force re-optimization on every start
+		force: true,
 	},
 
 	// build: {
@@ -30,17 +29,7 @@ export default defineConfig({
 		svgr(),
 		cloudflare({
 			configPath: 'wrangler.jsonc',
-			experimental: { remoteBindings: true },
-		}), // Add the node polyfills plugin here
-		// nodePolyfills({
-		//     exclude: [
-		//       'tty', // Exclude 'tty' module
-		//     ],
-		//     // We recommend leaving this as `true` to polyfill `global`.
-		//     globals: {
-		//         global: true,
-		//     },
-		// })
+		}),
 		tailwindcss(),
 		// sentryVitePlugin({
 		// 	org: 'cloudflare-0u',
@@ -50,13 +39,10 @@ export default defineConfig({
 
 	resolve: {
 		alias: {
-			// 'path': 'path-browserify',
-			// Add this line to fix the 'debug' package issue
 			debug: 'debug/src/browser',
-			// "@": path.resolve(__dirname, "./src"),
 			'@': path.resolve(__dirname, './src'),
-            'shared': path.resolve(__dirname, './shared'),
-            'worker': path.resolve(__dirname, './worker'),
+			'shared': path.resolve(__dirname, './shared'),
+			'worker': path.resolve(__dirname, './worker'),
 		},
 	},
 
@@ -82,8 +68,4 @@ export default defineConfig({
 
 	// Clear cache more aggressively
 	cacheDir: 'node_modules/.vite',
-
-	build: {
-		sourcemap: true,
-	},
 });

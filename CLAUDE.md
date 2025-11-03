@@ -1,140 +1,184 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code when working with code in this repository.
+
+## Communication Style
+- Be professional, concise, and direct
+- Do NOT use emojis in code reviews, changelogs, or any generated content. You may use professional visual indicators or favor markdown formatting over emojis.
+- Focus on substance over style
+- Use clear technical language
 
 ## Project Overview
-This is an official Cloudflare product - a React+Vite frontend with Cloudflare Workers backend that features a Durable Object-based AI agent capable of building webapps phase-wise from user prompts.
+vibesdk is an AI-powered full-stack application generation platform built on Cloudflare infrastructure.
 
-**Important Context:**
-- Core functionality: AI-powered webapp generation via Durable Objects
-- Authentication system and database schemas are currently under development (existing code is AI-generated and needs review/rewrite)
-- Full Cloudflare stack: Workers, D1, Durable Objects, R2 (planned)
-- All tests in the project are AI-generated and need replacement
+**Tech Stack:**
+- Frontend: React 19, TypeScript, Vite, TailwindCSS, React Router v7
+- Backend: Cloudflare Workers, Durable Objects, D1 (SQLite)
+- AI/LLM: OpenAI, Anthropic, Google AI Studio (Gemini)
+- WebSocket: PartySocket for real-time communication
+- Sandbox: Custom container service with CLI tools
+- Git: isomorphic-git with SQLite filesystem
 
-## Development Commands
+**Project Structure**
 
-### Frontend Development
-```bash
-npm run dev              # Start Vite dev server with hot reload
-npm run build            # Build production frontend
-npm run lint             # Run ESLint
-npm run preview          # Preview production build
-```
+**Frontend (`/src`):**
+- React application with 80+ components
+- Single source of truth for types: `src/api-types.ts`
+- All API calls in `src/lib/api-client.ts`
+- Custom hooks in `src/hooks/`
+- Route components in `src/routes/`
 
-### Worker Development
-```bash
-npm run local            # Run Worker locally with Wrangler
-npm run cf-typegen       # Generate TypeScript types for CF bindings
-npm run deploy           # Deploy to Cloudflare Workers + secrets
-```
+**Backend (`/worker`):**
+- Entry point: `worker/index.ts` (7860 lines)
+- Agent system: `worker/agents/` (88 files)
+  - Core: SimpleCodeGeneratorAgent (Durable Object, 2800+ lines)
+  - Operations: PhaseGeneration, PhaseImplementation, UserConversationProcessor
+  - Tools: tools for LLM (read-files, run-analysis, regenerate-file, etc.)
+  - Git: isomorphic-git with SQLite filesystem
+- Database: `worker/database/` (Drizzle ORM, D1)
+- Services: `worker/services/` (sandbox, code-fixer, oauth, rate-limit)
+- API: `worker/api/` (routes, controllers, handlers)
 
-### Database (D1) - Under Development
-```bash
-npm run db:setup         # Initial database setup
-npm run db:generate      # Generate migrations (local)
-npm run db:migrate:local # Apply migrations locally
-npm run db:migrate:remote # Apply migrations to production
-npm run db:studio        # Open Drizzle Studio for local DB
-```
+**Other:**
+- `/shared` - Shared types between frontend/backend (not worker specific types that are also imported in frontend)
+- `/migrations` - D1 database migrations
+- `/container` - Sandbox container tooling
+- `/templates` - Project scaffolding templates
 
-### Testing - Needs Rewrite
-```bash
-npm run test             # Run Jest tests (current tests need replacement)
-```
+**Core Architecture:**
+- Each chat session is a Durable Object instance (SimpleCodeGeneratorAgent)
+- State machine drives code generation (IDLE → PHASE_GENERATING → PHASE_IMPLEMENTING → REVIEWING)
+- Git history stored in SQLite, full clone protocol support
+- WebSocket for real-time streaming and state synchronization
 
-## Core Architecture: AI Code Generation
+## Key Architectural Patterns
 
-### Phase-wise Generation System (`worker/agents/codegen/`)
-The heart of the system is the `CodeGeneratorAgent` Durable Object that implements sophisticated code generation:
+**Durable Objects Pattern:**
+- Each chat session = Durable Object instance
+- Persistent state in SQLite (blueprint, files, history)
+- Ephemeral state in memory (abort controllers, active promises)
+- Single-threaded per instance
 
-1. **Blueprint Phase**: Analyzes user requirements and creates project blueprint
-2. **Incremental Generation**: Generates code phase-by-phase with specific files per phase
-3. **SCOF Protocol**: Structured Code Output Format for streaming generated code
-4. **Review Cycles**: Multiple automated review passes including:
-   - Static analysis (linting, type checking)
-   - Runtime validation via Runner Service
-   - AI-powered error detection and fixes
-5. **Diff Support**: Efficient file updates using unified diff format
+**State Machine:**
+IDLE → PHASE_GENERATING → PHASE_IMPLEMENTING → REVIEWING → IDLE
 
-### Key Components
-- **Durable Object**: `worker/agents/codegen/phasewiseGenerator.ts` - Stateful code generation
-- **State Management**: `worker/agents/codegen/state.ts` - Generation state tracking
-- **WebSocket Protocol**: Real-time streaming of generation progress
-- **Runner Service**: External service for code execution and validation
+**CodeGenState (Agent State):**
+- Project Identity: blueprint, projectName, templateName
+- File Management: generatedFilesMap (tracks all files)
+- Phase Tracking: generatedPhases, currentPhase
+- State Machine: currentDevState, shouldBeGenerating
+- Sandbox: sandboxInstanceId, commandsHistory
+- Conversation: conversationMessages, pendingUserInputs
 
-### Frontend-Worker Communication
-- **Initial Request**: POST `/api/agent`
-- **WebSocket Connection**: `/api/agent/:agentId/ws` for real-time updates
-- **Message Types**: Typed protocol for file updates, errors, phase transitions
+**WebSocket Communication:**
+- Real-time streaming via PartySocket
+- State restoration on reconnect (agent_connected message)
+- Message deduplication (tool execution causes duplicates)
 
-## Areas Under Development
+**Git System:**
+- isomorphic-git with SQLite filesystem adapter
+- Full commit history in Durable Object storage
+- Git clone protocol support (rebase on template)
+- FileManager auto-syncs from git via callbacks
 
-### Authentication System (Needs Review/Rewrite)
-Current implementation in `worker/auth/` and `worker/api/controllers/authController.ts`:
-- OAuth providers (Google, GitHub) - needs production hardening
-- JWT session management - requires security review
-- Database schema for users/sessions - needs optimization
+## Common Development Tasks
 
-### Database Architecture (In Progress)
-- Currently using Drizzle ORM with D1
-- Schema in `worker/database/schema.ts` - under active development
-- Migration system needs refinement
+**Change LLM Model for Operation:**
+Edit `/worker/agents/inferutils/config.ts` → `AGENT_CONFIG` object
 
-### Testing Strategy (Needs Implementation)
-- All current tests are AI-generated placeholders
-- Need proper unit tests for core generation logic
-- Integration tests for Durable Objects
-- E2E tests for generation workflow
+**Modify Conversation Agent Behavior:**
+Edit `/worker/agents/operations/UserConversationProcessor.ts` (system prompt line 50)
 
-## Working with the Codebase
+**Add New WebSocket Message:**
+1. Add type to `worker/api/websocketTypes.ts`
+2. Handle in `worker/agents/core/websocket.ts`
+3. Handle in `src/routes/chat/utils/handle-websocket-message.ts`
 
-### Adding Features to Code Generation
-1. Modify agent logic in `worker/agents/codegen/phasewiseGenerator.ts`
-2. Update state types in `worker/agents/codegen/state.ts`
-3. Add new message types for WebSocket protocol
-4. Update frontend handler in `src/routes/chat/hooks/use-chat.ts`
+**Add New LLM Tool:**
+1. Create `/worker/agents/tools/toolkit/my-tool.ts`
+2. Export `createMyTool(agent, logger)` function
+3. Import in `/worker/agents/tools/customTools.ts`
+4. Add to `buildTools()` (conversation) or `buildDebugTools()` (debugger)
 
-### Cloudflare-Specific Patterns
-- **Durable Objects**: Used for stateful, long-running operations
-- **D1 Database**: SQLite-based, use batch operations for performance
-- **Environment Bindings**: Access via `env` parameter (AI, DB, CodeGenObject)
-- **Service Bindings**: Runner service accessed via `env.RUNNER_SERVICE`
+**Add API Endpoint:**
+1. Define types in `src/api-types.ts`
+2. Add to `src/lib/api-client.ts`
+3. Create service in `worker/database/services/`
+4. Create controller in `worker/api/controllers/`
+5. Add route in `worker/api/routes/`
+6. Register in `worker/api/routes/index.ts`
 
-### Environment Variables
-Required in `.dev.vars` for local development:
-- `JWT_SECRET` - For session management (under development)
-- `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GOOGLE_AI_STUDIO_API_KEY` - AI providers
-- `RUNNER_SERVICE_API_KEY` - For code execution service
-- OAuth credentials (being redesigned)
+## Important Context
 
-## Important Notes
-- Focus on core AI generation functionality when making changes
-- Prioritize Cloudflare-native solutions (D1, Durable Objects, R2)
-- Always **strictly** follow DRY principles
-- Keep code quality high and maintainability in mind
-- Always research and understand the codebase before making changes
-- Never use 'any' type. If you see 'any', Find the proper appropriate type in the project and then replace it. If nothing is found, then write a type for it. 
-- Never use dynamic imports. If you see dynamic imports, Correct it!
-- Implement everything the 'right' and 'correct' way instead of 'fast' and 'quick'.
-- Don't add comments for explaining your changes to me. Comments should be professional, to the point and should be there to explain the code, not your changes
-- Don't start writing new 'corrected' versions of files instead of working on fixing the existing ones
+**Deep Debugger:**
+- Location: `/worker/agents/assistants/codeDebugger.ts`
+- Model: Gemini 2.5 Pro (reasoning_effort: high, 32k tokens)
+- Diagnostic priority: run_analysis → get_runtime_errors → get_logs
+- Can fix multiple files in parallel (regenerate_file)
+- Cannot run during code generation (checked via isCodeGenerating())
 
-## Common Tasks
+**Git System:**
+- GitVersionControl class wraps isomorphic-git
+- Key methods: commit(), reset(), log(), show()
+- FileManager auto-syncs via callback registration
+- Access control: user conversations get safe commands, debugger gets full access
+- SQLite filesystem adapter (`/worker/agents/git/fs-adapter.ts`)
 
-### Debugging Code Generation
-1. Monitor Durable Object logs: `npm run local`
-2. Check WebSocket messages in browser DevTools
-3. Verify Runner Service connectivity
-4. Review generation state in `CodeGeneratorAgent`
+**Abort Controller Pattern:**
+- `getOrCreateAbortController()` reuses controller for nested operations
+- Cleared after top-level operations complete
+- Shared by parent and nested tool calls
+- User abort cancels entire operation tree
 
-### Working with Durable Objects
-- Class: `worker/agents/codegen/phasewiseGenerator.ts`
-- Binding: `env.CodeGenObject`
-- ID Generation: Based on session/user context
-- State Persistence: Automatic via Cloudflare
+**Message Deduplication:**
+- Tool execution causes duplicate AI messages
+- Backend skips redundant LLM calls (empty tool results)
+- Frontend utilities deduplicate live and restored messages
+- System prompt teaches LLM not to repeat
 
-### Runner Service Integration
-- Executes generated code in isolated environment
-- Provides runtime error feedback
-- Returns preview URLs for generated apps
-- Configuration in `wrangler.jsonc`
+## Core Rules (Non-Negotiable)
+
+**1. Strict Type Safety**
+- NEVER use `any` type
+- Frontend imports types from `@/api-types` (single source of truth)
+- Search codebase for existing types before creating new ones
+
+**2. DRY Principle**
+- Search for similar functionality before implementing
+- Extract reusable utilities, hooks, and components
+- Never copy-paste code - refactor into shared functions
+
+**3. Follow Existing Patterns**
+- Frontend APIs: All in `/src/lib/api-client.ts`
+- Backend Routes: Controllers in `worker/api/controllers/`, routes in `worker/api/routes/`
+- Database Services: In `worker/database/services/`
+- Types: Shared in `shared/types/`, API in `src/api-types.ts`
+
+**4. Code Quality**
+- Production-ready code only - no TODOs or placeholders
+- No hacky workarounds
+- Comments explain purpose, not narration
+- No overly verbose AI-like comments
+
+**5. File Naming**
+- React Components: PascalCase.tsx
+- Utilities/Hooks: kebab-case.ts
+- Backend Services: PascalCase.ts
+
+## Common Pitfalls
+
+**Don't:**
+- Use `any` type (find or create proper types)
+- Copy-paste code (extract to utilities)
+- Use Vite env variables in Worker code
+- Forget to update types when changing APIs
+- Create new implementations without searching for existing ones
+- Use emojis in code or comments
+- Write verbose AI-like comments
+
+**Do:**
+- Search codebase thoroughly before creating new code
+- Follow existing patterns consistently
+- Keep comments concise and purposeful
+- Write production-ready code
+- Test thoroughly before submitting

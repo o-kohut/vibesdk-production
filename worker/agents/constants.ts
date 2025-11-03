@@ -1,4 +1,5 @@
 import { WebSocketMessageType } from "../api/websocketTypes";
+import { AgentActionKey } from "./inferutils/config.types";
 
 export const WebSocketMessageResponses: Record<string, WebSocketMessageType> = {
     GENERATION_STARTED: 'generation_started',
@@ -25,6 +26,7 @@ export const WebSocketMessageResponses: Record<string, WebSocketMessageType> = {
     DEPLOYMENT_STARTED: 'deployment_started',
     DEPLOYMENT_COMPLETED: 'deployment_completed',
     DEPLOYMENT_FAILED: 'deployment_failed',
+    PREVIEW_FORCE_REFRESH: 'preview_force_refresh',
     // Cloudflare deployment messages
     CLOUDFLARE_DEPLOYMENT_STARTED: 'cloudflare_deployment_started',
     CLOUDFLARE_DEPLOYMENT_COMPLETED: 'cloudflare_deployment_completed', 
@@ -41,7 +43,10 @@ export const WebSocketMessageResponses: Record<string, WebSocketMessageType> = {
 
     CODE_REVIEWING: 'code_reviewing',
     CODE_REVIEWED: 'code_reviewed',
+
     COMMAND_EXECUTING: 'command_executing',
+    COMMAND_EXECUTED: 'command_executed',
+    COMMAND_EXECUTION_FAILED: 'command_execution_failed',
     
     // Generation control messages
     GENERATION_STOPPED: 'generation_stopped',
@@ -61,6 +66,8 @@ export const WebSocketMessageResponses: Record<string, WebSocketMessageType> = {
     CONVERSATION_RESPONSE: 'conversation_response',
     CONVERSATION_CLEARED: 'conversation_cleared',
     CONVERSATION_STATE: 'conversation_state',
+    PROJECT_NAME_UPDATED: 'project_name_updated',
+    BLUEPRINT_UPDATED: 'blueprint_updated',
     
     // Model configuration info
     MODEL_CONFIGS_INFO: 'model_configs_info',
@@ -74,7 +81,6 @@ export const WebSocketMessageResponses: Record<string, WebSocketMessageType> = {
 export const WebSocketMessageRequests = {
     GENERATE_ALL: 'generate_all',
     GENERATE: 'generate',
-    CODE_REVIEW: 'code_review',
     DEPLOY: 'deploy',
     PREVIEW: 'preview',
     OVERWRITE: 'overwrite',
@@ -103,4 +109,12 @@ export const WebSocketMessageRequests = {
 export const PREVIEW_EXPIRED_ERROR = 'Preview expired, attempting redeploy. Please try again after a minute or refresh the page';
 export const MAX_DEPLOYMENT_RETRIES = 5;
 export const MAX_LLM_MESSAGES = 200;
-export const MAX_TOOL_CALLING_DEPTH = 7;
+export const MAX_TOOL_CALLING_DEPTH_DEFAULT = 7;
+export const getMaxToolCallingDepth = (agentActionKey: AgentActionKey | 'testModelConfig') => {
+    switch (agentActionKey) {
+        case 'deepDebugger':
+            return 100;
+        default:
+            return MAX_TOOL_CALLING_DEPTH_DEFAULT;
+    }
+}

@@ -754,7 +754,8 @@ export function applyDiff(
 		}
 		
 		// Handle @@ ... @@ format (ignore line numbers)
-		const cleanedDiff = diffContent.replace(/@@ .* @@/g, '@@ ... @@');
+		// Only match @@ at line start (hunk headers), not in content
+		const cleanedDiff = diffContent.replace(/^@@ .*? @@/gm, '@@ ... @@');
 		
 		// Enhanced hunk parsing with validation
 		const hunksRaw = cleanedDiff.match(/(?:^|\n)@@[^\n]*(?:\n(?!@@)[^\n]*)*(?=\n@@|$)/g) || 

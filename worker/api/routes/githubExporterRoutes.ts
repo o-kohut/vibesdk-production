@@ -17,4 +17,7 @@ export function setupGitHubExporterRoutes(app: Hono<AppEnv>): void {
     
     // Repository export routes with OAuth flow
     app.post('/api/github-app/export', setAuthLevel(AuthConfig.authenticated), adaptController(GitHubExporterController, GitHubExporterController.initiateGitHubExport));
+    
+    // Check remote repository status
+    app.post('/api/github-app/check-remote', setAuthLevel(AuthConfig.authenticated), adaptController(GitHubExporterController, GitHubExporterController.checkRemoteStatus));
 }

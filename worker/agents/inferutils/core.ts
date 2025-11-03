@@ -22,7 +22,7 @@ import { getUserConfigurableSettings } from '../../config';
 import { SecurityError, RateLimitExceededError } from 'shared/types/errors';
 import { executeToolWithDefinition } from '../tools/customTools';
 import { RateLimitType } from 'worker/services/rate-limit/config';
-import { MAX_LLM_MESSAGES, MAX_TOOL_CALLING_DEPTH } from '../constants';
+import { getMaxToolCallingDepth, MAX_LLM_MESSAGES } from '../constants';
 
 function optimizeInputs(messages: Message[]): Message[] {
     return messages.map((message) => ({
@@ -319,6 +319,7 @@ type InferArgsBase = {
     tools?: ToolDefinition<any, any>[];
     providerOverride?: 'cloudflare' | 'direct';
     userApiKeys?: Record<string, string>;
+    abortSignal?: AbortSignal;
 };
 
 type InferArgsStructured = InferArgsBase & {
@@ -330,13 +331,59 @@ type InferWithCustomFormatArgs = InferArgsStructured & {
     format?: SchemaFormat;
     formatOptions?: FormatterOptions;
 };
+
+export interface ToolCallContext {
+    messages: Message[];
+    depth: number;
+}
+
+export function serializeCallChain(context: ToolCallContext, finalResponse: string): string {
+    // Build a transcript of the tool call messages, and append the final response
+    let transcript = '**Request terminated by user, partial response transcript (last 5 messages):**\n\n<call_chain_transcript>';
+    for (const message of context.messages.slice(-5)) {
+        let content = message.content;
+        
+        // Truncate tool messages to 100 chars
+        if (message.role === 'tool' || message.role === 'function') {
+            content = (content || '').slice(0, 100);
+        }
+        
+        transcript += `<message role="${message.role}">${content}</message>`;
+    }
+    transcript += `<final_response>${finalResponse || '**cancelled**'}</final_response>`;
+    transcript += '</call_chain_transcript>';
+    return transcript;
+}
+
 export class InferError extends Error {
     constructor(
         message: string,
-        public partialResponse?: string,
+        public response: string,
+        public toolCallContext?: ToolCallContext
     ) {
         super(message);
         this.name = 'InferError';
+    }
+
+    partialResponseTranscript(): string {
+        if (!this.toolCallContext) {
+            return this.response;
+        }
+        return serializeCallChain(this.toolCallContext, this.response);
+    }
+
+    partialResponse(): InferResponseString {
+        return {
+            string: this.response,
+            toolCallContext: this.toolCallContext
+        };
+    }
+}
+
+export class AbortError extends InferError {
+    constructor(response: string, toolCallContext?: ToolCallContext) {
+        super(response, response, toolCallContext);
+        this.name = 'AbortError';
     }
 }
 
@@ -391,11 +438,6 @@ async function executeToolCalls(openAiToolCalls: ChatCompletionMessageFunctionTo
     );
 }
 
-export interface ToolCallContext {
-    messages: Message[];
-    depth: number;
-}
-
 export function infer<OutputSchema extends z.AnyZodObject>(
     args: InferArgsStructured,
     toolCallContext?: ToolCallContext,
@@ -428,6 +470,7 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
     tools,
     reasoning_effort,
     temperature,
+    abortSignal,
 }: InferArgsBase & {
     schema?: OutputSchema;
     schemaName?: string;
@@ -440,11 +483,11 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
     
     // Check tool calling depth to prevent infinite recursion
     const currentDepth = toolCallContext?.depth ?? 0;
-    if (currentDepth >= MAX_TOOL_CALLING_DEPTH) {
-        console.warn(`Tool calling depth limit reached (${currentDepth}/${MAX_TOOL_CALLING_DEPTH}). Stopping recursion.`);
+    if (currentDepth >= getMaxToolCallingDepth(actionKey)) {
+        console.warn(`Tool calling depth limit reached (${currentDepth}/${getMaxToolCallingDepth(actionKey)}). Stopping recursion.`);
         // Return a response indicating max depth reached
         if (schema) {
-            throw new Error(`Maximum tool calling depth (${MAX_TOOL_CALLING_DEPTH}) exceeded. Tools may be calling each other recursively.`);
+            throw new AbortError(`Maximum tool calling depth (${getMaxToolCallingDepth(actionKey)}) exceeded. Tools may be calling each other recursively.`, toolCallContext);
         }
         return { 
             string: `[System: Maximum tool calling depth reached.]`,
@@ -553,6 +596,7 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
                 reasoning_effort,
                 temperature,
             }, {
+                signal: abortSignal,
                 headers: {
                     "cf-aig-metadata": JSON.stringify({
                         chatId: metadata.agentId,
@@ -564,6 +608,12 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
             });
             console.log(`Inference response received`);
         } catch (error) {
+            // Check if error is due to abort
+            if (error instanceof Error && (error.name === 'AbortError' || error.message?.includes('aborted') || error.message?.includes('abort'))) {
+                console.log('Inference cancelled by user');
+                throw new AbortError('**User cancelled inference**', toolCallContext);
+            }
+            
             console.error(`Failed to get inference response from OpenAI: ${error}`);
             if ((error instanceof Error && error.message.includes('429')) || (typeof error === 'string' && error.includes('429'))) {
                 throw new RateLimitExceededError('Rate limit exceeded in LLM calls, Please try again later', RateLimitType.LLM_CALLS);
@@ -701,7 +751,7 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
             };
             
             const executedCallsWithResults = executedToolCalls.filter(result => result.result);
-            console.log(`Tool calling depth: ${newDepth}/${MAX_TOOL_CALLING_DEPTH}`);
+            console.log(`${actionKey}: Tool calling depth: ${newDepth}/${getMaxToolCallingDepth(actionKey)}`);
             
             if (executedCallsWithResults.length) {
                 if (schema && schemaName) {
@@ -720,6 +770,7 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
                         tools,
                         reasoning_effort,
                         temperature,
+                        abortSignal,
                     }, newToolCallContext);
                     return output;
                 } else {
@@ -734,6 +785,7 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
                         tools,
                         reasoning_effort,
                         temperature,
+                        abortSignal,
                     }, newToolCallContext);
                     return output;
                 }
@@ -766,7 +818,7 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
             return { object: result.data, toolCallContext };
         } catch (parseError) {
             console.error('Error parsing response:', parseError);
-            throw new InferError('Failed to parse response', content);
+            throw new InferError('Failed to parse response', content, toolCallContext);
         }
     } catch (error) {
         if (error instanceof RateLimitExceededError || error instanceof SecurityError) {

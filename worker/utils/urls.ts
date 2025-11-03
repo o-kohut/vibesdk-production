@@ -17,3 +17,12 @@ export function buildUserWorkerUrl(env: Env, deploymentId: string): string {
     const protocol = getProtocolForHost(domain);
     return `${protocol}://${deploymentId}.${domain}`;
 }
+
+export function buildGitCloneUrl(env: Env, appId: string, token?: string): string {
+    const domain = env.CUSTOM_DOMAIN;
+    const protocol = getProtocolForHost(domain);
+    // Git expects username:password format. Use 'oauth2' as username and token as password
+    // This is a standard pattern for token-based git authentication
+    const auth = token ? `oauth2:${token}@` : '';
+    return `${protocol}://${auth}${domain}/apps/${appId}.git`;
+}

@@ -1901,7 +1901,7 @@ class CloudflareDeploymentManager {
         console.log('Running database migrations...');
         try {
             await execSync(
-                'bun run db:generate && bun run db:migrate:remote',
+                'bun run db:generate && bun run db:migrate:local && bun run db:migrate:remote',
                 {
                     stdio: 'inherit',
                     cwd: PROJECT_ROOT,

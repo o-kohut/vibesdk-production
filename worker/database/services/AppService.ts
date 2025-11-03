@@ -239,6 +239,7 @@ export class AppService extends BaseService {
                 .where(eq(schema.apps.id, appId));
             return true;
         } catch (error) {
+            this.logger.error('[AppService] Failed to update app', { appId, error });
             return false;
         }
     }

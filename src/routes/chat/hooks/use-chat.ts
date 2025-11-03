@@ -41,10 +41,10 @@ export interface PhaseTimelineItem {
 	files: {
 		path: string;
 		purpose: string;
-		status: 'generating' | 'completed' | 'error' | 'validating';
+		status: 'generating' | 'completed' | 'error' | 'validating' | 'cancelled';
 		contents?: string;
 	}[];
-	status: 'generating' | 'completed' | 'error' | 'validating';
+	status: 'generating' | 'completed' | 'error' | 'validating' | 'cancelled';
 	timestamp: number;
 }
 
@@ -101,6 +101,11 @@ export function useChat({
 	const [isDeploying, setIsDeploying] = useState(false);
 	const [cloudflareDeploymentUrl, setCloudflareDeploymentUrl] = useState<string>('');
 	const [deploymentError, setDeploymentError] = useState<string>();
+	
+	// Issue tracking and debugging state
+	const [runtimeErrorCount, setRuntimeErrorCount] = useState(0);
+	const [staticIssueCount, setStaticIssueCount] = useState(0);
+	const [isDebugging, setIsDebugging] = useState(false);
 	
 	// Preview deployment state
 	const [isPreviewDeploying, setIsPreviewDeploying] = useState(false);
@@ -182,6 +187,9 @@ export function useChat({
 			setIsGenerationPaused,
 			setIsGenerating,
 			setIsPhaseProgressActive,
+			setRuntimeErrorCount,
+			setStaticIssueCount,
+			setIsDebugging,
 			// Current state
 			isInitialStateRestored,
 			blueprint,
@@ -274,7 +282,10 @@ export function useChat({
 
 					// Send success message to user
 					if (isRetry) {
-						sendMessage(createAIMessage('websocket_reconnected', '🔌 Connection restored! Continuing with code generation...'));
+						// Clear old messages on reconnect to prevent duplicates
+						setMessages(() => [
+							createAIMessage('websocket_reconnected', 'Seems we lost connection for a while there. Fixed now!', true)
+						]);
 					}
 
 					// Always request conversation state explicitly (running/full history)
@@ -468,8 +479,10 @@ export function useChat({
 					});
 				} else if (connectionStatus.current === 'idle') {
 					setIsBootstrapping(false);
-					// Get existing progress
-					sendMessage(createAIMessage('fetching-chat', 'Fetching your previous chat...'));
+					// Show starting message with thinking indicator
+					setMessages(() => [
+						createAIMessage('fetching-chat', 'Starting from where you left off...', true)
+					]);
 
 					// Fetch existing agent connection details
 					const response = await apiClient.connectToAgent(urlChatId);
@@ -482,7 +495,6 @@ export function useChat({
 					// Set the chatId for existing chat - this enables the chat input
 					setChatId(urlChatId);
 
-					sendMessage(createAIMessage('resuming-chat', 'Starting from where you left off...'));
 
 					logger.debug('connecting from init for existing chatId');
 					connectWithRetry(response.data.websocketUrl, {
@@ -535,6 +547,17 @@ export function useChat({
 			};
 		}
 	}, [edit]);
+
+	// Track debugging state based on deep_debug tool events in messages
+	useEffect(() => {
+		const hasActiveDebug = messages.some(msg => 
+			msg.role === 'assistant' && 
+			msg.ui?.toolEvents?.some(event => 
+				event.name === 'deep_debug' && event.status === 'start'
+			)
+		);
+		setIsDebugging(hasActiveDebug);
+	}, [messages]);
 
 	// Control functions for deployment and generation
 	const handleStopGeneration = useCallback(() => {
@@ -630,5 +653,9 @@ export function useChat({
 		isPreviewDeploying,
 		// Phase progress visual indicator
 		isPhaseProgressActive,
+		// Issue tracking and debugging state
+		runtimeErrorCount,
+		staticIssueCount,
+		isDebugging,
 	};
 }

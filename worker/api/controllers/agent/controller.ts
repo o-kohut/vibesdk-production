@@ -14,6 +14,7 @@ import { createLogger } from '../../../logger';
 import { getPreviewDomain } from 'worker/utils/urls';
 import { ImageType, uploadImage } from 'worker/utils/images';
 import { ProcessedImageAttachment } from 'worker/types/image-attachment';
+import { getTemplateImportantFiles } from 'worker/services/sandbox/utils';
 
 const defaultCodeGenArgs: CodeGenArgs = {
     query: '',
@@ -80,7 +81,7 @@ export class CodingAgentController extends BaseController {
             // Fetch all user model configs, api keys and agent instance at once
             const [userConfigsRecord, agentInstance] = await Promise.all([
                 modelConfigService.getUserModelConfigs(user.id),
-                getAgentStub(env, agentId, false, this.logger)
+                getAgentStub(env, agentId)
             ]);
                                 
             // Convert Record to Map and extract only ModelConfig properties
@@ -110,7 +111,7 @@ export class CodingAgentController extends BaseController {
                 modelConfigsCount: Object.keys(userModelConfigs).length,
             });
 
-            const { sandboxSessionId, templateDetails, selection } = await getTemplateForQuery(env, inferenceContext, query, body.images, this.logger);
+            const { templateDetails, selection } = await getTemplateForQuery(env, inferenceContext, query, body.images, this.logger);
 
             const websocketUrl = `${url.protocol === 'https:' ? 'wss:' : 'ws:'}//${url.host}/api/agent/${agentId}/ws`;
             const httpStatusUrl = `${url.origin}/api/agent/${agentId}`;
@@ -129,7 +130,7 @@ export class CodingAgentController extends BaseController {
                 httpStatusUrl,
                 template: {
                     name: templateDetails.name,
-                    files: templateDetails.files,
+                    files: getTemplateImportantFiles(templateDetails),
                 }
             });
 
@@ -144,7 +145,6 @@ export class CodingAgentController extends BaseController {
                     writer.write({chunk});
                 },
                 templateInfo: { templateDetails, selection },
-                sandboxSessionId
             }, body.agentMode || defaultCodeGenArgs.agentMode) as Promise<CodeGenState>;
             agentPromise.then(async (_state: CodeGenState) => {
                 writer.write("terminate");
@@ -219,7 +219,7 @@ export class CodingAgentController extends BaseController {
 
             try {
                 // Get the agent instance to handle the WebSocket connection
-                const agentInstance = await getAgentStub(env, chatId, true, this.logger);
+                const agentInstance = await getAgentStub(env, chatId);
                 
                 this.logger.info(`Successfully got agent instance for chat: ${chatId}`);
 
@@ -270,7 +270,7 @@ export class CodingAgentController extends BaseController {
 
             try {
                 // Verify the agent instance exists
-                const agentInstance = await getAgentStub(env, agentId, true, this.logger);
+                const agentInstance = await getAgentStub(env, agentId);
                 if (!agentInstance || !(await agentInstance.isInitialized())) {
                     return CodingAgentController.createErrorResponse<AgentConnectionData>('Agent instance not found or not initialized', 404);
                 }
@@ -312,7 +312,7 @@ export class CodingAgentController extends BaseController {
 
             try {
                 // Get the agent instance
-                const agentInstance = await getAgentStub(env, agentId, true, this.logger);
+                const agentInstance = await getAgentStub(env, agentId);
                 
                 // Deploy the preview
                 const preview = await agentInstance.deployToSandbox();

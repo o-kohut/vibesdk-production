@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { Loader, Check, AlertCircle, ChevronDown, ChevronRight, ArrowUp, Zap } from 'lucide-react';
+import { Loader, Check, AlertCircle, ChevronDown, ChevronRight, ArrowUp, Zap, XCircle } from 'lucide-react';
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import type { RefObject } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -9,7 +9,7 @@ import { ThinkingIndicator } from './thinking-indicator';
 import type { ProjectStage } from '../utils/project-stage-helpers';
 
 // Unified status type for consistency
-type UnifiedStatus = 'pending' | 'active' | 'completed' | 'error' | 'generating' | 'validating';
+type UnifiedStatus = 'pending' | 'active' | 'completed' | 'error' | 'generating' | 'validating' | 'cancelled';
 
 // Animation variants and transitions for consistent motion
 const statusIconVariants = {
@@ -88,6 +88,8 @@ function StatusIcon({ status, size = 'md', className }: StatusIconProps) {
 			return <Loader className={clsx(iconClasses, 'animate-spin text-blue-400', className)} />;
 		case 'completed':
 			return <Check className={clsx(iconClasses, 'text-green-500', className)} />;
+		case 'cancelled':
+			return <XCircle className={clsx(iconClasses, 'text-orange-400', className)} />;
 		case 'error':
 			return <AlertCircle className={clsx(iconClasses, 'text-red-500', className)} />;
 		case 'active':
@@ -184,6 +186,13 @@ interface PhaseTimelineProps {
 	chatId?: string;
 	isDeploying?: boolean;
 	handleDeployToCloudflare?: (instanceId: string) => void;
+	// Issue tracking and debugging
+	runtimeErrorCount?: number;
+	staticIssueCount?: number;
+	isDebugging?: boolean;
+	// Activity state
+	isGenerating?: boolean;
+	isThinking?: boolean;
 }
 
 // Helper function to truncate long file paths
@@ -265,7 +274,12 @@ export function PhaseTimeline({
 	onViewChange,
 	chatId,
 	isDeploying,
-	handleDeployToCloudflare
+	handleDeployToCloudflare,
+	runtimeErrorCount = 0,
+	staticIssueCount = 0,
+	isDebugging = false,
+	isGenerating = false,
+	isThinking = false
 }: PhaseTimelineProps) {
 	const [expandedPhases, setExpandedPhases] = useState<Set<string>>(new Set());
 	const [showCollapsedBar, setShowCollapsedBar] = useState(false);
@@ -329,7 +343,7 @@ export function PhaseTimeline({
 		if (validatingPhase) {
 			return {
 				text: `Reviewing: ${truncatePhaseName(validatingPhase.name)}`,
-				subtitle: 'Running tests and fixing issues...',
+				subtitle: 'Identifying issues...',
 				icon: <StatusLoader color="blue" />,
 				badge: phaseBadge
 			};
@@ -649,9 +663,17 @@ export function PhaseTimeline({
 			>
 				{/* Main Timeline Card */}
 				<div ref={timelineCardRef} className="px-2 pr-3.5 py-3 flex-1 rounded-xl border border-black/12 bg-bg-4 dark:bg-bg-2">
+				{/* Calculate if Done/Debugging will show for line extension */}
+				{(() => {
+					const allStagesCompleted = projectStages.every(stage => stage.status === 'completed');
+					const isAnythingHappening = isDebugging || isGenerating || isThinking || isPreviewDeploying;
+					const willShowStatusStage = (allStagesCompleted && !isAnythingHappening) || isDebugging;
+					
+					return (
+						<>
 				{/* Project Stages */}
 				{projectStages.map((stage, index) => (
-					<div key={stage.id} className="flex relative w-full gap-2 pb-2.5 last:pb-0">
+					<div key={stage.id} className="flex relative w-full gap-2 pb-2.5">
 						<AnimatedStatusIndicator status={stage.status} />
 
 						<div className="flex flex-col gap-2 flex-1">
@@ -677,6 +699,33 @@ export function PhaseTimeline({
 										</span>
 									</motion.div>
 								)}
+
+								{/* Subtle inline issue indicator for completed code stage */}
+								{stage.id === 'code' && stage.status === 'completed' && (runtimeErrorCount > 0 || staticIssueCount > 0) && (
+									<motion.span
+										initial={{ opacity: 0, scale: 0.9 }}
+										animate={{ opacity: 1, scale: 1 }}
+										transition={commonTransitions.premiumShort}
+										className="inline-flex items-center gap-1.5 ml-1.5 text-xs"
+									>
+										<span className="text-zinc-300">&bull;</span>
+										{runtimeErrorCount > 0 && (
+											<span className="inline-flex items-center gap-1">
+												<div className="w-1.5 h-1.5 rounded-full bg-red-400" />
+												<span className="text-red-400/80">{runtimeErrorCount} error{runtimeErrorCount > 1 ? 's' : ''}</span>
+											</span>
+										)}
+										{runtimeErrorCount > 0 && staticIssueCount > 0 && (
+											<span className="text-text-tertiary/50">,</span>
+										)}
+										{staticIssueCount > 0 && (
+											<span className="inline-flex items-center gap-1">
+												<div className="w-1.5 h-1.5 rounded-full bg-orange-400" />
+												<span className="text-orange-400/80">{staticIssueCount} warning{staticIssueCount > 1 ? 's' : ''}</span>
+											</span>
+										)}
+									</motion.span>
+								)}
 							</div>
 
 							{/* Blueprint button */}
@@ -698,21 +747,25 @@ export function PhaseTimeline({
 
 							{/* Detailed Phase Timeline for code stage */}
 							{stage.id === 'code' && (
-								<div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 phase-timeline-scroll">
+								<div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 phase-timeline-scroll relative">
 									{phaseTimeline.map((phase, phaseIndex) => (
 										<div
 											key={phase.id}
 											className="space-y-1 relative"
 											ref={phaseIndex === phaseTimeline.length - 1 ? lastPhaseRef : undefined}
 										>
+											{/* Subtle vertical line connecting phases */}
+											{phaseIndex < phaseTimeline.length - 1 && (
+												<div className="absolute left-[5px] w-[0.5px] h-full top-3 bg-border-primary/40" />
+											)}
 											{/* Phase Implementation Header */}
 											<button
-												onClick={() => phase.status === 'completed' && togglePhase(phase.id)}
+												onClick={() => (phase.status === 'completed' || phase.status === 'cancelled') && togglePhase(phase.id)}
 												className="flex items-start gap-2 relative z-0 w-full text-left hover:bg-zinc-50/5 rounded px-1 py-1 transition-colors group"
-												disabled={phase.status !== 'completed'}
+												disabled={phase.status !== 'completed' && phase.status !== 'cancelled'}
 											>
-												{/* Expand/Collapse chevron for completed phases */}
-												{phase.status === 'completed' && (
+												{/* Expand/Collapse chevron for completed/cancelled phases */}
+												{(phase.status === 'completed' || phase.status === 'cancelled') && (
 													<div className="flex-shrink-0 opacity-60 group-hover:opacity-100 transition-opacity mt-0.5">
 														{expandedPhases.has(phase.id) ? (
 															<ChevronDown className="size-3" />
@@ -723,22 +776,17 @@ export function PhaseTimeline({
 												)}
 
 												<div className="flex-shrink-0 mt-0.5">
-													{phase.status === 'generating' ? (
-														<StatusLoader size="sm" color="accent" />
-													) : phase.status === 'validating' ? (
-														<StatusLoader size="sm" color="blue" />
-													) : (
-														<StatusCheck size="sm" color="green" />
-													)}
+													<StatusIcon status={phase.status} size="sm" />
 												</div>
 												<span className="text-sm font-medium text-text-50 flex-1 break-words">
 													{phase.status === 'completed' ? `Implemented ${phase.name}` :
+													 phase.status === 'cancelled' ? `Cancelled ${phase.name}` :
 													 phase.status === 'validating' ? `Reviewing ${phase.name}` :
 													 `Implementing ${phase.name}`}
 												</span>
 
-												{/* File count badge for collapsed completed phases */}
-												{phase.status === 'completed' && !expandedPhases.has(phase.id) && (
+												{/* File count badge for collapsed completed/cancelled phases */}
+												{(phase.status === 'completed' || phase.status === 'cancelled') && !expandedPhases.has(phase.id) && (
 													<span className="text-xs text-text-primary/50 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded flex-shrink-0">
 														{phase.files.length} files
 													</span>
@@ -746,7 +794,7 @@ export function PhaseTimeline({
 											</button>
 
 											{/* Phase Files - Show when implementing, validating, or expanded */}
-											{(phase.status === 'generating' || phase.status === 'validating' || (phase.status === 'completed' && expandedPhases.has(phase.id))) && (
+											{(phase.status === 'generating' || phase.status === 'validating' || ((phase.status === 'completed' || phase.status === 'cancelled') && expandedPhases.has(phase.id))) && (
 												<div className="ml-6 space-y-0.5">
 													{phase.files.map((phaseFile) => {
 														// Check if this file exists in the global files array for click handling
@@ -818,7 +866,7 @@ export function PhaseTimeline({
 														<StatusLoader size="sm" color="blue" />
 														<span className="text-sm font-medium text-blue-400">Reviewing phase...</span>
 													</div>
-													<span className="text-xs text-blue-300/80 ml-5">Running tests and fixing any issues</span>
+													<span className="text-xs text-blue-300/80 ml-5">Identifying issues...</span>
 												</div>
 											);
 										} else if (isPreviewDeploying) {
@@ -875,7 +923,8 @@ export function PhaseTimeline({
 							)}
 						</div>
 
-						{index !== projectStages.length - 1 && (
+						{/* Vertical connecting line */}
+						{(index !== projectStages.length - 1 || (index === projectStages.length - 1 && willShowStatusStage)) && (
 							<div className={clsx(
 								'absolute left-[9.25px] w-px h-full top-2.5 z-10',
 								stage.status === 'completed'
@@ -885,7 +934,66 @@ export function PhaseTimeline({
 						)}
 					</div>
 				))}
-			</div>
+				
+				<AnimatePresence mode="wait">
+					{/* Done stage - shows when everything is complete and nothing is happening */}
+					{(() => {
+						const allStagesCompleted = projectStages.every(stage => stage.status === 'completed');
+						const isAnythingHappening = isDebugging || isGenerating || isThinking || isPreviewDeploying;
+						const showDone = allStagesCompleted && !isAnythingHappening;
+						
+						if (showDone) {
+							return (
+								<motion.div
+									key="done"
+									initial={{ opacity: 0 }}
+									animate={{ opacity: 1 }}
+									exit={{ opacity: 0 }}
+									transition={commonTransitions.premiumShort}
+									className="flex relative w-full gap-2 pb-2.5"
+								>
+									{/* Connecting line from previous stage */}
+									<div className="absolute left-[9.25px] w-px h-[0.875rem] -top-[0.875rem] bg-accent" />
+									
+									<AnimatedStatusIndicator status="completed" />
+									
+									<div className="flex flex-col gap-2 flex-1">
+										<span className="font-medium text-text-secondary">Done</span>
+									</div>
+								</motion.div>
+							);
+						}
+						
+						// Show debugging status when debugging
+						if (isDebugging) {
+							return (
+								<motion.div
+									key="debugging"
+									initial={{ opacity: 0 }}
+									animate={{ opacity: 1 }}
+									exit={{ opacity: 0 }}
+									transition={commonTransitions.premiumShort}
+									className="flex relative w-full gap-2 pb-2.5"
+								>
+									{/* Connecting line from previous stage */}
+									<div className="absolute left-[9.25px] w-px h-[0.875rem] -top-[0.875rem] bg-accent" />
+									
+									<AnimatedStatusIndicator status="active" />
+									
+									<div className="flex flex-col gap-2 flex-1">
+										<span className="font-medium text-text-secondary">Debugging in progress...</span>
+									</div>
+								</motion.div>
+							);
+						}
+						
+						return null;
+					})()}
+			</AnimatePresence>
+			</>
+			);
+		})()}
+		</div>
 		</motion.div>
 		</>
 	);

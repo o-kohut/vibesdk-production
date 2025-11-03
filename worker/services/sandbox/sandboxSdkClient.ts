@@ -1,7 +1,6 @@
-import { getSandbox, Sandbox, ExecuteResponse, parseSSEStream, LogEvent } from '@cloudflare/sandbox';
+import { getSandbox, Sandbox, parseSSEStream, LogEvent, ExecResult } from '@cloudflare/sandbox';
 
 import {
-    TemplateDetailsResponse,
     BootstrapResponse,
     GetInstanceResponse,
     BootstrapStatusResponse,
@@ -20,9 +19,6 @@ import {
     CodeIssue,
     InstanceDetails,
     LintSeverity,
-    TemplateInfo,
-    TemplateDetails,
-    GitHubPushRequest, GitHubPushResponse,
     GetLogsResponse,
     ListInstancesResponse,
     StoredError,
@@ -32,25 +28,22 @@ import { createObjectLogger } from '../../logger';
 import { env } from 'cloudflare:workers'
 import { BaseSandboxService } from './BaseSandboxService';
 
-import { 
-    buildDeploymentConfig, 
-    parseWranglerConfig, 
-    deployToDispatch, 
+import {
+    buildDeploymentConfig,
+    parseWranglerConfig,
+    deployToDispatch,
 } from '../deployer/deploy';
-import { 
-    createAssetManifest 
+import {
+    createAssetManifest
 } from '../deployer/utils/index';
-import { CodeFixResult, FileFetcher, fixProjectIssues } from '../code-fixer';
-import { FileObject } from '../code-fixer/types';
 import { generateId } from '../../utils/idGenerator';
 import { ResourceProvisioner } from './resourceProvisioner';
 import { TemplateParser } from './templateParser';
 import { ResourceProvisioningResult, CrowdinOAuthProvisioningResult } from './types';
 import { CrowdinResourceProvisioner } from '../crowdin/crowdinResourceProvisioner';
-import { GitHubService } from '../github/GitHubService';
 import { getPreviewDomain } from '../../utils/urls';
-import { isDev } from 'worker/utils/envs';
-import { FileOutputType } from 'worker/agents/schemas';
+import { isDev } from 'worker/utils/envs'
+import { FileTreeBuilder } from './fileTreeBuilder';
 // Export the Sandbox class in your Worker
 export { Sandbox as UserAppSandboxService, Sandbox as DeployerService} from "@cloudflare/sandbox";
 
@@ -68,7 +61,9 @@ interface InstanceMetadata {
     redacted_files: string[];
 }
 
-type SandboxType = DurableObjectStub<Sandbox<Env>>;
+type SandboxType = Sandbox;
+
+type ExecutionSession = Awaited<ReturnType<Sandbox['createSession']>>;
 
 /**
  * Streaming event for enhanced command execution
@@ -85,7 +80,7 @@ export enum AllocationStrategy {
     MANY_TO_ONE = 'many_to_one',
     ONE_TO_ONE = 'one_to_one',
 }
-  
+
 function getAutoAllocatedSandbox(sessionId: string): string {
     // Distribute sessions across available containers using consistent hashing
     // Convert session ID to hash for deterministic assignment
@@ -95,13 +90,13 @@ function getAutoAllocatedSandbox(sessionId: string): string {
       hash = ((hash << 5) - hash) + char;
       hash = hash & hash; // Convert to 32-bit integer
     }
-    
+
     hash = Math.abs(hash);
 
     const max_instances = env.MAX_SANDBOX_INSTANCES ? Number(env.MAX_SANDBOX_INSTANCES) : 10;
     const containerIndex = hash % max_instances;
     const containerId = `container-pool-${containerIndex}`;
-    
+
     console.log(`Session mapped to container`, { sessionId, containerId, hash, containerIndex });
     return containerId;
 }
@@ -109,6 +104,7 @@ function getAutoAllocatedSandbox(sessionId: string): string {
 export class SandboxSdkClient extends BaseSandboxService {
     private sandbox: SandboxType;
     private metadataCache = new Map<string, InstanceMetadata>();
+    private sessionCache = new Map<string, ExecutionSession>();
     private userId: string;
 
     constructor(sandboxId: string, agentId: string, userId: string) {
@@ -118,7 +114,7 @@ export class SandboxSdkClient extends BaseSandboxService {
         super(sandboxId);
         this.sandbox = this.getSandbox();
         this.userId = userId;
-        
+
         this.logger = createObjectLogger(this, 'SandboxSdkClient');
         this.logger.setFields({
             sandboxId: this.sandboxId,
@@ -129,12 +125,15 @@ export class SandboxSdkClient extends BaseSandboxService {
     }
 
     async initialize(): Promise<void> {
+        // Initialize default session for sandbox operations
+        await this.getDefaultSession();
+
         // Run a echo command to check if the sandbox is working
-        const echoResult = await this.sandbox.exec('echo "Hello World"');
+        const echoResult = await this.safeSandboxExec('echo "Hello World"');
         if (echoResult.exitCode !== 0) {
             throw new Error(`Failed to run echo command: ${echoResult.stderr}`);
         }
-        this.logger.info('Sandbox initialization complete')
+        this.logger.info('Sandbox initialization complete');
     }
 
     private getWranglerKVKey(instanceId: string): string {
@@ -148,23 +147,222 @@ export class SandboxSdkClient extends BaseSandboxService {
         return this.sandbox;
     }
 
+    /**
+     * Generic session getter with caching and automatic recovery
+     * Properly handles existing sessions and ensures correct cwd
+     */
+    private async getOrCreateSession(sessionId: string, cwd: string): Promise<ExecutionSession> {
+        try {
+            // Try to create a new session with the specified cwd
+            this.logger.info('Creating new session', { sessionId, cwd });
+            const session = await this.getSandbox().createSession({ id: sessionId, cwd });
+            return session;
+        } catch (error) {
+            // If session already exists, get it
+            this.logger.info('Session already exists, retrieving it', { sessionId, cwd });
+            const existingSession = await this.getSandbox().getSession(sessionId);
+
+            // Verify the cwd matches what we expect
+            const pwdResult = await existingSession.exec('pwd');
+            const actualCwd = pwdResult.stdout.trim();
+
+            if (actualCwd !== cwd) {
+                this.logger.warn('Existing session has wrong cwd, attempting to change directory', {
+                    sessionId,
+                    expectedCwd: cwd,
+                    actualCwd
+                });
+                // Try to cd to the correct directory
+                await existingSession.exec(`cd ${cwd}`);
+                const verifyResult = await existingSession.exec('pwd');
+                if (verifyResult.stdout.trim() !== cwd) {
+                    // throw new Error(`Failed to set working directory to ${cwd}, currently at ${verifyResult.stdout.trim()}`);
+                    this.logger.error(`Failed to set working directory to ${cwd}, currently at ${verifyResult.stdout.trim()}`);
+                }
+                this.logger.info('Successfully changed directory for existing session', { sessionId, cwd });
+            }
+
+            return existingSession;
+        }
+    }
+
+    /**
+     * Get or create a session for an instance with automatic caching.
+     * Environment variables should be set via .dev.vars file.
+     */
+    private async getInstanceSession(instanceId: string, cwd?: string): Promise<ExecutionSession> {
+        if (!this.sessionCache.has(instanceId)) {
+            if (instanceId === 'sandbox-default') {
+                cwd = '/workspace';
+            } else {
+                cwd = cwd || `/workspace/${instanceId}`;
+            }
+            const session = await this.getOrCreateSession(instanceId, cwd);
+            this.sessionCache.set(instanceId, session);
+        }
+        const session = this.sessionCache.get(instanceId);
+        return session!;
+    }
+
+    /**
+     * Get or create default session for anonymous sandbox operations
+     */
+    private async getDefaultSession(): Promise<ExecutionSession> {
+        return await this.getInstanceSession('sandbox-default', '/workspace');
+    }
+
+    private async executeCommand(instanceId: string, command: string, options?: {timeout?: number}): Promise<ExecResult> {
+        const session = await this.getInstanceSession(instanceId);
+        return await session.exec(command, options);
+    }
+
+    /**
+     * Safe wrapper for direct sandbox exec calls using default session
+     */
+    private async safeSandboxExec(command: string, options?: {timeout?: number}): Promise<ExecResult> {
+        const session = await this.getDefaultSession();
+        return await session.exec(command, options);
+    }
+
+    /**
+     * Invalidate session cache (call when instance is destroyed)
+     */
+    private invalidateSessionCache(instanceId: string): void {
+        if (this.sessionCache.has(instanceId)) {
+            this.sessionCache.delete(instanceId);
+            this.logger.debug('Session cache invalidated', { instanceId });
+        }
+    }
+
     /** Write a binary file to the sandbox using small base64 chunks to avoid large control messages. */
     private async writeBinaryFileViaBase64(targetPath: string, data: ArrayBuffer, bytesPerChunk: number = 16 * 1024): Promise<void> {
-        const sandbox = this.getSandbox();
         const dir = targetPath.includes('/') ? targetPath.slice(0, targetPath.lastIndexOf('/')) : '.';
         // Ensure directory and clean target file
-        await sandbox.exec(`mkdir -p '${dir}'`);
-        await sandbox.exec(`rm -f '${targetPath}'`);
+        await this.safeSandboxExec(`mkdir -p '${dir}'`);
+        await this.safeSandboxExec(`rm -f '${targetPath}'`);
 
         const buffer = new Uint8Array(data);
         for (let i = 0; i < buffer.length; i += bytesPerChunk) {
             const chunk = buffer.subarray(i, Math.min(i + bytesPerChunk, buffer.length));
             const base64Chunk = btoa(String.fromCharCode(...chunk));
             // Append decoded bytes into the target file inside the sandbox
-            const appendResult = await sandbox.exec(`printf '%s' '${base64Chunk}' | base64 -d >> '${targetPath}'`);
+            const appendResult = await this.safeSandboxExec(`printf '%s' '${base64Chunk}' | base64 -d >> '${targetPath}'`);
             if (appendResult.exitCode !== 0) {
                 throw new Error(`Failed to append to ${targetPath}: ${appendResult.stderr}`);
             }
+        }
+    }
+
+    /**
+     * Write multiple files efficiently using a single shell script
+     * Reduces 2N requests to just 2 requests regardless of file count
+     * Uses base64 encoding to handle all content safely
+     */
+    private async writeFilesViaScript(
+        files: Array<{path: string, content: string}>,
+        session: ExecutionSession
+    ): Promise<Array<{file: string, success: boolean, error?: string}>> {
+        if (files.length === 0) return [];
+
+        this.logger.info('Writing files via shell script', { fileCount: files.length });
+
+        // Generate shell script
+        const scriptLines = ['#!/bin/bash'];
+
+        for (const { path, content } of files) {
+            const utf8Bytes = new TextEncoder().encode(content);
+
+            // Convert bytes to base64 in chunks to avoid stack overflow
+            const chunkSize = 8192;
+            const base64Chunks: string[] = [];
+
+            for (let i = 0; i < utf8Bytes.length; i += chunkSize) {
+                const chunk = utf8Bytes.slice(i, i + chunkSize);
+                // Convert chunk to binary string
+                let binaryString = '';
+                for (let j = 0; j < chunk.length; j++) {
+                    binaryString += String.fromCharCode(chunk[j]);
+                }
+                // Encode chunk to base64
+                base64Chunks.push(btoa(binaryString));
+            }
+
+            const base64 = base64Chunks.join('');
+
+            scriptLines.push(
+                `mkdir -p "$(dirname "${path}")" && echo '${base64}' | base64 -d > "${path}" && echo "OK:${path}" || echo "FAIL:${path}"`
+            );
+        }
+
+        const script = scriptLines.join('\n');
+        const scriptPath = '/tmp/batch_write.sh';
+
+        try {
+            // Write script (1 request)
+            const writeResult = await session.writeFile(scriptPath, script);
+            if (!writeResult.success) {
+                throw new Error('Failed to write batch script');
+            }
+
+            // Execute with bash
+            const { stdout, stderr } = await session.exec(`bash ${scriptPath}`, { timeout: 60000 });
+
+            // Parse results from output
+            const output = stdout + stderr;
+            const matches = output.matchAll(/OK:(.+)/g);
+            const successPaths = new Set<string>();
+            for (const match of matches) {
+                if (match[1]) successPaths.add(match[1]);
+            }
+
+            const results = files.map(({ path }) => ({
+                file: path,
+                success: successPaths.has(path),
+                error: successPaths.has(path) ? undefined : 'Write failed'
+            }));
+
+            const successCount = successPaths.size;
+            const failedCount = files.length - successCount;
+
+            if (failedCount > 0) {
+                this.logger.warn('Batch write completed with errors', {
+                    total: files.length,
+                    success: successCount,
+                    failed: failedCount
+                });
+            } else {
+                this.logger.info('Batch write completed', {
+                    total: files.length,
+                    success: successCount
+                });
+            }
+
+            return results;
+
+        } catch (error) {
+            this.logger.error('Batch write failed', error);
+            return files.map(({ path }) => ({
+                file: path,
+                success: false,
+                error: error instanceof Error ? error.message : 'Unknown error'
+            }));
+        }
+    }
+
+    async updateProjectName(instanceId: string, projectName: string): Promise<boolean> {
+        try {
+            await this.updateProjectConfiguration(instanceId, projectName);
+            try {
+                const metadata = await this.getInstanceMetadata(instanceId);
+                const updated = { ...metadata, projectName } as InstanceMetadata;
+                await this.storeInstanceMetadata(instanceId, updated);
+            } catch (error) {
+                this.logger.error('Failed to update instance metadata', error);
+            }
+            return true;
+        } catch (error) {
+            this.logger.error('Failed to update project name', error);
+            return false;
         }
     }
 
@@ -172,20 +370,19 @@ export class SandboxSdkClient extends BaseSandboxService {
         return `${instanceId}-metadata.json`;
     }
 
-    private async executeCommand(instanceId: string, command: string, timeout?: number): Promise<ExecuteResponse> {
-        return await this.getSandbox().exec(`cd ${instanceId} && ${command}`, { timeout });
-        // return await this.getSandbox().exec(command, { cwd: instanceId, timeout });
-    }
-
     private async getInstanceMetadata(instanceId: string): Promise<InstanceMetadata> {
         // Check cache first
         if (this.metadataCache.has(instanceId)) {
             return this.metadataCache.get(instanceId)!;
         }
-        
+
         // Cache miss - read from disk
         try {
-            const metadataFile = await this.getSandbox().readFile(this.getInstanceMetadataFile(instanceId));
+            const session = await this.getDefaultSession();
+            const metadataFile = await session.readFile(this.getInstanceMetadataFile(instanceId));
+            if (!metadataFile.success) {
+                throw new Error('Failed to read instance metadata file');
+            }
             const metadata = JSON.parse(metadataFile.content) as InstanceMetadata;
             this.metadataCache.set(instanceId, metadata); // Cache it
             return metadata;
@@ -196,7 +393,11 @@ export class SandboxSdkClient extends BaseSandboxService {
     }
 
     private async storeInstanceMetadata(instanceId: string, metadata: InstanceMetadata): Promise<void> {
-        await this.getSandbox().writeFile(this.getInstanceMetadataFile(instanceId), JSON.stringify(metadata));
+        const session = await this.getDefaultSession();
+        const result = await session.writeFile(this.getInstanceMetadataFile(instanceId), JSON.stringify(metadata));
+        if (!result.success) {
+            throw new Error(`Failed to write instance metadata: ${result.path}`);
+        }
         this.metadataCache.set(instanceId, metadata); // Update cache
     }
 
@@ -207,37 +408,37 @@ export class SandboxSdkClient extends BaseSandboxService {
     private async allocateAvailablePort(excludedPorts: number[] = [3000]): Promise<number> {
         const startTime = Date.now();
         const excludeList = excludedPorts.join(' ');
-        
+
         // Single command to find first available port in dev range (8001-8999)
         const findPortCmd = `
             for port in $(seq 8001 8999); do
-                if ! echo "${excludeList}" | grep -q "\\\\b$port\\\\b" && 
-                   ! netstat -tuln 2>/dev/null | grep -q ":$port " && 
+                if ! echo "${excludeList}" | grep -q "\\\\b$port\\\\b" &&
+                   ! netstat -tuln 2>/dev/null | grep -q ":$port " &&
                    ! ss -tuln 2>/dev/null | grep -q ":$port "; then
                     echo $port
-                    exit 0
+                    break
                 fi
             done
-            exit 1
         `;
-        
-        const result = await this.getSandbox().exec(findPortCmd.trim());
+
+        const result = await this.safeSandboxExec(findPortCmd.trim());
         const endTime = Date.now();
         const duration = (endTime - startTime) / 1000;
         this.logger.info(`Port allocation took ${duration} seconds`);
-        if (result.exitCode === 0 && result.stdout.trim()) {
-            const port = parseInt(result.stdout.trim());
+
+        const portStr = result.stdout.trim();
+        if (portStr) {
+            const port = parseInt(portStr);
             this.logger.info(`Allocated available port: ${port}`);
             return port;
         }
-        
+
         throw new Error('No available ports found in range 8001-8999');
     }
 
     private async checkTemplateExists(templateName: string): Promise<boolean> {
         // Single command to check if template directory and package.json both exist
-        const sandbox = this.getSandbox();
-        const checkResult = await sandbox.exec(`test -f ${templateName}/package.json && echo "exists" || echo "missing"`);
+        const checkResult = await this.safeSandboxExec(`test -f ${templateName}/package.json && echo "exists" || echo "missing"`);
         return checkResult.exitCode === 0 && checkResult.stdout.trim() === "exists";
     }
 
@@ -246,13 +447,13 @@ export class SandboxSdkClient extends BaseSandboxService {
         const downloadUrl = downloadDir ? `${downloadDir}/${templateName}.zip` : `${templateName}.zip`;
         this.logger.info(`Fetching object: ${downloadUrl} from R2 bucket`);
         const r2Object = await env.TEMPLATES_BUCKET.get(downloadUrl);
-          
+
         if (!r2Object) {
             throw new Error(`Object '${downloadUrl}' not found in bucket`);
         }
-    
+
         const zipData = await r2Object.arrayBuffer();
-    
+
         this.logger.info(`Downloaded zip file (${zipData.byteLength} bytes)`);
         return zipData;
     }
@@ -261,14 +462,14 @@ export class SandboxSdkClient extends BaseSandboxService {
         if (!await this.checkTemplateExists(templateName)) {
             // Download and extract template
             this.logger.info(`Template doesnt exist, Downloading template from: ${templateName}`);
-            
+
             const zipData = await this.downloadTemplate(templateName, downloadDir);
             // Stream zip to sandbox in safe base64 chunks and write directly as binary
             await this.writeBinaryFileViaBase64(`${templateName}.zip`, zipData);
             this.logger.info(`Wrote zip file to sandbox in chunks: ${templateName}.zip`);
-            
-            const setupResult = await this.getSandbox().exec(`unzip -o -q ${templateName}.zip -d ${isInstance ? '.' : templateName}`);
-        
+
+            const setupResult = await this.safeSandboxExec(`unzip -o -q ${templateName}.zip -d ${isInstance ? '.' : templateName}`);
+
             if (setupResult.exitCode !== 0) {
                 throw new Error(`Failed to download/extract template: ${setupResult.stderr}`);
             }
@@ -277,174 +478,17 @@ export class SandboxSdkClient extends BaseSandboxService {
         }
     }
 
-    async getTemplateDetails(templateName: string): Promise<TemplateDetailsResponse> {
-        try {
-            this.logger.info('Retrieving template details', { templateName });
-            
-            await this.ensureTemplateExists(templateName);
-
-            this.logger.info('Template setup complete');
-
-            const [fileTree, catalogInfo, dontTouchFiles, redactedFiles] = await Promise.all([
-                this.buildFileTree(templateName),
-                this.getTemplateFromCatalog(templateName),
-                this.fetchDontTouchFiles(templateName),
-                this.fetchRedactedFiles(templateName)
-            ]);
-            
-            if (!fileTree) {
-                throw new Error(`Failed to build file tree for template ${templateName}`);
-            }
-
-            const filesResponse = await this.getFiles(templateName, undefined, true, redactedFiles);    // Use template name as directory
-
-            this.logger.info('Template files retrieved');
-
-            // Parse package.json for dependencies
-            let dependencies: Record<string, string> = {};
-            try {
-                const packageJsonFile = filesResponse.files.find(file => file.filePath === 'package.json');
-                if (!packageJsonFile) {
-                    throw new Error('package.json not found');
-                }
-                const packageJson = JSON.parse(packageJsonFile.fileContents) as {
-                    dependencies?: Record<string, string>;
-                    devDependencies?: Record<string, string>;
-                };
-                dependencies = { 
-                    ...packageJson.dependencies || {}, 
-                    ...packageJson.devDependencies || {}
-                };
-            } catch {
-                this.logger.info('No package.json found', { templateName });
-            }
-            const templateDetails: TemplateDetails = {
-                name: templateName,
-                description: {
-                    selection: catalogInfo?.description.selection || '',
-                    usage: catalogInfo?.description.usage || ''
-                },
-                fileTree,
-                files: filesResponse.files,
-                language: catalogInfo?.language,
-                deps: dependencies,
-                dontTouchFiles,
-                redactedFiles,
-                frameworks: catalogInfo?.frameworks || []
-            };
-            
-            this.logger.info('Template files retrieved', { templateName, fileCount: filesResponse.files.length });
-
-            return {
-                success: true,
-                templateDetails
-            };
-        } catch (error) {
-            this.logger.error('getTemplateDetails', error, { templateName });
-            return {
-                success: false,
-                error: `Failed to get template details: ${error instanceof Error ? error.message : 'Unknown error'}`
-            };
-        }
-    }
-
-    private async getTemplateFromCatalog(templateName: string): Promise<TemplateInfo | null> {
-        try {
-            const templatesResponse = await SandboxSdkClient.listTemplates();
-            if (templatesResponse.success) {
-                return templatesResponse.templates.find(t => t.name === templateName) || null;
-            }
-            return null;
-        } catch {
-            return null;
-        }
-    }
-
     private async buildFileTree(instanceId: string): Promise<FileTreeNode | undefined> {
         try {
-            // Directories to exclude from file tree
-            const EXCLUDED_DIRS = [
-                ".github",
-                "node_modules",
-                ".git",
-                "dist",
-                ".wrangler",
-                ".vscode",
-                ".next",
-                ".cache",
-                ".idea",
-                ".DS_Store"
-            ];
-            // Build exclusion string for find command
-            const excludedDirsFind = EXCLUDED_DIRS.map(dir => `-name "${dir}"`).join(" -o ");
-            // File type exclusions
-            const excludedFileTypes = [
-                "*.jpg",
-                "*.jpeg",
-                "*.png",
-                "*.gif",
-                "*.svg",
-                "*.ico",
-                "*.webp",
-                "*.bmp"
-            ];
-            const excludedFilesFind = excludedFileTypes.map(ext => `-not -name "${ext}"`).join(" ");
+            // Generate find command with exclusions
+            const { dirExclusions, fileExclusions } = FileTreeBuilder.generateFindExclusions();
+
             // Build the command dynamically
-            const buildTreeCmd = `echo "===FILES==="; find . -type d \\( ${excludedDirsFind} \\) -prune -o \\( -type f ${excludedFilesFind} \\) -print; echo "===DIRS==="; find . -type d \\( ${excludedDirsFind} \\) -prune -o -type d -print`;
+            const buildTreeCmd = `echo "===FILES==="; find . -type d \\( ${dirExclusions} \\) -prune -o \\( -type f ${fileExclusions} \\) -print; echo "===DIRS==="; find . -type d \\( ${dirExclusions} \\) -prune -o -type d -print`;
 
             const filesResult = await this.executeCommand(instanceId, buildTreeCmd);
             if (filesResult.exitCode === 0) {
-                const output = filesResult.stdout.trim();
-                const sections = output.split('===DIRS===');
-                const fileSection = sections[0].replace('===FILES===', '').trim();
-                const dirSection = sections[1] ? sections[1].trim() : '';
-                
-                const files = fileSection.split('\n').filter(line => line.trim() && line !== '.');
-                const dirs = dirSection.split('\n').filter(line => line.trim() && line !== '.');
-                
-                // Create sets for quick lookup
-                const fileSet = new Set(files.map(f => f.startsWith('./') ? f.substring(2) : f));
-                // const dirSet = new Set(dirs.map(d => d.startsWith('./') ? d.substring(2) : d));
-                
-                // Combine all paths
-                const allPaths = [...files, ...dirs].map(path => 
-                    path.startsWith('./') ? path.substring(2) : path
-                ).filter(path => path && path !== '.');
-                
-                // Build tree with proper file/directory detection
-                const root: FileTreeNode = {
-                    path: '',
-                    type: 'directory',
-                    children: []
-                };
-
-                allPaths.forEach(filePath => {
-                    const parts = filePath.split('/').filter(part => part);
-                    let current = root;
-
-                    parts.forEach((_, index) => {
-                        const path = parts.slice(0, index + 1).join('/');
-                        const isFile = fileSet.has(path);
-                        
-                        let child = current.children?.find(c => c.path === path);
-                        
-                        if (!child) {
-                            child = {
-                                path,
-                                type: isFile ? 'file' : 'directory',
-                                children: isFile ? undefined : []
-                            };
-                            current.children = current.children || [];
-                            current.children.push(child);
-                        }
-                        
-                        if (!isFile) {
-                            current = child;
-                        }
-                    });
-                });
-
-                return root;
+                return FileTreeBuilder.buildFromFindOutput(filesResult.stdout.trim());
             }
         } catch (error) {
             this.logger.warn('Failed to build file tree', error);
@@ -459,12 +503,10 @@ export class SandboxSdkClient extends BaseSandboxService {
     async listAllInstances(): Promise<ListInstancesResponse> {
         try {
             this.logger.info('Retrieving instance metadata');
-            
-            const sandbox = this.getSandbox();
-            
+
             // Use a single command to find metadata files only in current directory (not nested)
-            const bulkResult = await sandbox.exec(`find . -maxdepth 1 -name "*-metadata.json" -type f -exec sh -c 'echo "===FILE:$1==="; cat "$1"' _ {} \\;`);
-            
+            const bulkResult = await this.safeSandboxExec(`find . -maxdepth 1 -name "*-metadata.json" -type f -exec sh -c 'echo "===FILE:$1==="; cat "$1"' _ {} \\;`);
+
             if (bulkResult.exitCode !== 0) {
                 return {
                     success: true,
@@ -472,30 +514,30 @@ export class SandboxSdkClient extends BaseSandboxService {
                     count: 0
                 };
             }
-            
+
             const instances: InstanceDetails[] = [];
-            
+
             // Parse the combined output
-            const sections = bulkResult.stdout.split('===FILE:').filter(section => section.trim());
-            
-            for (const section of sections) {
+            const metadataSections: string[] = bulkResult.stdout.split('===FILE:').filter((section: string) => section.trim());
+
+            for (const section of metadataSections) {
                 try {
                     const lines = section.trim().split('\n');
                     if (lines.length < 2) continue;
-                    
+
                     // First line contains the file path, remaining lines contain the JSON
                     const filePath = lines[0].replace('===', '');
                     const jsonContent = lines.slice(1).join('\n');
-                    
+
                     // Extract instance ID from filename (remove ./ prefix and -metadata.json suffix)
                     const instanceId = filePath.replace('./', '').replace('-metadata.json', '');
-                    
+
                     // Parse metadata
                     const metadata = JSON.parse(jsonContent) as InstanceMetadata;
-                    
+
                     // Update cache with the metadata we just read
                     this.metadataCache.set(instanceId, metadata);
-                    
+
                     // Create lightweight instance details from metadata
                     const instanceDetails: InstanceDetails = {
                         runId: instanceId,
@@ -511,15 +553,15 @@ export class SandboxSdkClient extends BaseSandboxService {
                         fileTree: undefined,
                         runtimeErrors: undefined
                     };
-                    
+
                     instances.push(instanceDetails);
                 } catch (error) {
                     this.logger.warn(`Failed to process metadata section`, error);
                 }
             }
-            
+
             this.logger.info('Instance list retrieved', { instanceCount: instances.length });
-            
+
             return {
                 success: true,
                 instances,
@@ -543,7 +585,7 @@ export class SandboxSdkClient extends BaseSandboxService {
         const startTime = Date.now();
         const pollIntervalMs = 500;
         const maxAttempts = Math.ceil(maxWaitTimeMs / pollIntervalMs);
-        
+
         // Patterns that indicate the server is ready
         const readinessPatterns = [
             /http:\/\/[^\s]+/,           // Any HTTP URL (most reliable)
@@ -560,10 +602,10 @@ export class SandboxSdkClient extends BaseSandboxService {
             try {
                 // Get recent logs only to avoid processing old content
                 const logsResult = await this.getLogs(instanceId, true);
-                
+
                 if (logsResult.success && logsResult.logs.stdout) {
                     const logs = logsResult.logs.stdout;
-                    
+
                     // Check for any readiness pattern
                     for (const pattern of readinessPatterns) {
                         if (pattern.test(logs)) {
@@ -573,12 +615,12 @@ export class SandboxSdkClient extends BaseSandboxService {
                         }
                     }
                 }
-                
+
                 // Wait before next attempt (except on last attempt)
                 if (attempt < maxAttempts) {
                     await new Promise(resolve => setTimeout(resolve, pollIntervalMs));
                 }
-                
+
             } catch (error) {
                 this.logger.warn(`Error checking server readiness for ${instanceId} (attempt ${attempt}):`, error);
                 // Continue trying even if there's an error getting logs
@@ -587,7 +629,7 @@ export class SandboxSdkClient extends BaseSandboxService {
                 }
             }
         }
-        
+
         const elapsedTime = Date.now() - startTime;
         this.logger.warn('Development server readiness timeout', { instanceId, elapsedTimeMs: elapsedTime, totalAttempts: maxAttempts });
         return false;
@@ -595,13 +637,16 @@ export class SandboxSdkClient extends BaseSandboxService {
 
     private async startDevServer(instanceId: string, port: number): Promise<string> {
         try {
-            // Use CLI tools for enhanced monitoring instead of direct process start
-            const process = await this.getSandbox().startProcess(
-                `VITE_LOGGER_TYPE=json monitor-cli process start --instance-id ${instanceId} --port ${port} -- bun run dev`, 
-                { cwd: instanceId }
+            // Use session-based process management
+            // Note: Environment variables should already be set via setLocalEnvVars
+            const session = await this.getOrCreateSession(`${instanceId}-dev`, `/workspace/${instanceId}`);
+
+            // Start process with env vars inline for those not in .dev.vars
+            const process = await session.startProcess(
+                `VITE_LOGGER_TYPE=json PORT=${port} monitor-cli process start --instance-id ${instanceId} --port ${port} -- bun run dev`
             );
             this.logger.info('Development server started', { instanceId, processId: process.id });
-            
+
             // Wait for the server to be ready (non-blocking - always returns the process ID)
             try {
                 const isReady = await this.waitForServerReady(instanceId, process.id, 10000);
@@ -614,7 +659,7 @@ export class SandboxSdkClient extends BaseSandboxService {
                 this.logger.warn(`Error during readiness check for ${instanceId}:`, readinessError);
                 this.logger.info('Continuing with server startup despite readiness check error', { instanceId });
             }
-            
+
             return process.id;
         } catch (error) {
             this.logger.warn('Failed to start dev server', error);
@@ -627,10 +672,10 @@ export class SandboxSdkClient extends BaseSandboxService {
      */
     private async provisionTemplateResources(instanceId: string, projectName: string): Promise<ResourceProvisioningResult> {
         try {
-            const sandbox = this.getSandbox();
-            
-            // Read wrangler.jsonc file
-            const wranglerFile = await sandbox.readFile(`${instanceId}/wrangler.jsonc`);
+            const session = await this.getInstanceSession(instanceId);
+
+            // Read wrangler.jsonc file using absolute path
+            const wranglerFile = await session.readFile(`/workspace/${instanceId}/wrangler.jsonc`);
             if (!wranglerFile.success) {
                 this.logger.info(`No wrangler.jsonc found for ${instanceId}, skipping resource provisioning`);
                 return {
@@ -678,7 +723,7 @@ export class SandboxSdkClient extends BaseSandboxService {
                     wranglerUpdated: false
                 };
             }
-            
+
             const provisioned: ResourceProvisioningResult['provisioned'] = [];
             const failed: ResourceProvisioningResult['failed'] = [];
             const replacements: Record<string, string> = {};
@@ -686,7 +731,7 @@ export class SandboxSdkClient extends BaseSandboxService {
             // Provision each resource
             for (const placeholderInfo of parseResult.placeholders) {
                 this.logger.info(`Provisioning ${placeholderInfo.resourceType} resource for placeholder ${placeholderInfo.placeholder}`);
-                
+
                 const provisionResult = await resourceProvisioner.provisionResource(
                     placeholderInfo.resourceType,
                     projectName
@@ -715,8 +760,8 @@ export class SandboxSdkClient extends BaseSandboxService {
             let wranglerUpdated = false;
             if (Object.keys(replacements).length > 0) {
                 const updatedContent = templateParser.replacePlaceholders(wranglerFile.content, replacements);
-                const writeResult = await sandbox.writeFile(`${instanceId}/wrangler.jsonc`, updatedContent);
-                
+                const writeResult = await session.writeFile(`/workspace/${instanceId}/wrangler.jsonc`, updatedContent);
+
                 if (writeResult.success) {
                     wranglerUpdated = true;
                     this.logger.info(`Updated wrangler.jsonc with ${Object.keys(replacements).length} resource IDs for ${instanceId}`);
@@ -776,7 +821,7 @@ export class SandboxSdkClient extends BaseSandboxService {
             }
 
             const productionUrl = `${this.getProtocolForHost()}://${projectName}.${getPreviewDomain(env)}`;
-            
+
             let crowdinProvisioner: CrowdinResourceProvisioner;
             try {
                 crowdinProvisioner = new CrowdinResourceProvisioner(this.logger, env, this.userId);
@@ -790,8 +835,8 @@ export class SandboxSdkClient extends BaseSandboxService {
 
             // Create dev OAuth client
             const devOAuthResult = await crowdinProvisioner.createOAuthClient(`${projectName}-dev`, previewURL);
-            
-            // Create prod OAuth client  
+
+            // Create prod OAuth client
             const prodOAuthResult = await crowdinProvisioner.createOAuthClient(projectName, productionUrl);
 
             if (!devOAuthResult.success || !prodOAuthResult.success) {
@@ -812,7 +857,7 @@ export class SandboxSdkClient extends BaseSandboxService {
                 devClientId: devOAuthResult.clientId,
                 prodClientId: prodOAuthResult.clientId
             });
-            
+
             // Merge dev credentials with localEnvVars (create new object, don't mutate)
             const updatedLocalEnvVars = {
                 ...(localEnvVars || {}),
@@ -820,13 +865,13 @@ export class SandboxSdkClient extends BaseSandboxService {
                 CROWDIN_CLIENT_ID: devOAuthResult.clientId!,
                 CROWDIN_CLIENT_SECRET: devOAuthResult.clientSecret!
             };
-            
+
             // Replace placeholders in JSONC file (preserves comments and formatting)
             let wranglerUpdated = false;
             let updatedWranglerContent = wranglerFile.content
                 .replace(/\{\{CROWDIN_CLIENT_ID\}\}/g, prodOAuthResult.clientId!)
                 .replace(/\{\{CROWDIN_CLIENT_SECRET\}\}/g, prodOAuthResult.clientSecret!);
-        
+
             const writeResult = await sandbox.writeFile(`${instanceId}/wrangler.jsonc`, updatedWranglerContent);
 
             if (writeResult.success) {
@@ -855,15 +900,15 @@ export class SandboxSdkClient extends BaseSandboxService {
     */
     private async startCloudflaredTunnel(instanceId: string, port: number): Promise<string> {
         try {
-            const process = await this.getSandbox().startProcess(
-                `cloudflared tunnel --url http://localhost:${port}`, 
-                { cwd: instanceId }
+            const session = await this.getOrCreateSession(`${instanceId}-tunnel`, `/workspace/${instanceId}`);
+            const process = await session.startProcess(
+                `cloudflared tunnel --url http://localhost:${port}`
             );
             this.logger.info(`Started cloudflared tunnel for ${instanceId}`);
 
             // Stream process logs to extract the preview URL
             const logStream = await this.getSandbox().streamProcessLogs(process.id);
-            
+
             return new Promise<string>((resolve, reject) => {
                 const timeout = setTimeout(() => {
                     // reject(new Error('Timeout waiting for cloudflared tunnel URL'));
@@ -877,7 +922,7 @@ export class SandboxSdkClient extends BaseSandboxService {
                             if (event.data) {
                                 const logLine = event.data;
                                 this.logger.info(`Cloudflared log ===> ${logLine}`);
-                                
+
                                 // Look for the preview URL in the logs
                                 // Format: https://subdomain.trycloudflare.com
                                 const urlMatch = logLine.match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/);
@@ -910,24 +955,24 @@ export class SandboxSdkClient extends BaseSandboxService {
      */
     private async updateProjectConfiguration(instanceId: string, projectName: string): Promise<void> {
         try {
-            const sandbox = this.getSandbox();
-            
+            const session = await this.getInstanceSession(instanceId);
+
             // Update package.json with new project name (top-level only)
             this.logger.info(`Updating package.json with project name: ${projectName}`);
-            const packageJsonResult = await sandbox.exec(`cd ${instanceId} && sed -i '1,10s/^[ \t]*"name"[ ]*:[ ]*"[^"]*"/  "name": "${projectName}"/' package.json`);
-            
+            const packageJsonResult = await session.exec(`sed -i '1,10s/^[ \t]*"name"[ ]*:[ ]*"[^"]*"/  "name": "${projectName}"/' package.json`);
+
             if (packageJsonResult.exitCode !== 0) {
                 this.logger.warn('Failed to update package.json', packageJsonResult.stderr);
             }
-            
+
             // Update wrangler.jsonc with new project name (top-level only)
             this.logger.info(`Updating wrangler.jsonc with project name: ${projectName}`);
-            const wranglerResult = await sandbox.exec(`cd ${instanceId} && sed -i '0,/"name":/s/"name"[ ]*:[ ]*"[^"]*"/"name": "${projectName}"/' wrangler.jsonc`);
-               
+            const wranglerResult = await session.exec(`sed -i '0,/"name":/s/"name"[ ]*:[ ]*"[^"]*"/"name": "${projectName}"/' wrangler.jsonc`);
+
             if (wranglerResult.exitCode !== 0) {
                 this.logger.warn('Failed to update wrangler.jsonc', wranglerResult.stderr);
             }
-            
+
             this.logger.info('Project configuration updated successfully');
         } catch (error) {
             this.logger.error(`Error updating project configuration: ${error}`);
@@ -937,12 +982,16 @@ export class SandboxSdkClient extends BaseSandboxService {
 
     private async setLocalEnvVars(instanceId: string, localEnvVars: Record<string, string>): Promise<void> {
         try {
-            const sandbox = this.getSandbox();
-            // Simply save all env vars in '.dev.vars' file
+            // Write .dev.vars file - tools will read environment variables from this file
+            const session = await this.getInstanceSession(instanceId);
             const envVarsContent = Object.entries(localEnvVars)
                 .map(([key, value]) => `${key}=${value}`)
                 .join('\n');
-            await sandbox.writeFile(`${instanceId}/.dev.vars`, envVarsContent);
+            const result = await session.writeFile(`/workspace/${instanceId}/.dev.vars`, envVarsContent);
+            if (!result.success) {
+                throw new Error('Failed to write .dev.vars file');
+            }
+            this.logger.info('Environment variables written to .dev.vars', { instanceId, varCount: Object.keys(localEnvVars).length });
         } catch (error) {
             this.logger.error(`Error setting local environment variables: ${error}`);
             throw error;
@@ -954,7 +1003,7 @@ export class SandboxSdkClient extends BaseSandboxService {
             const sandbox = this.getSandbox();
             // Update project configuration with the specified project name
             await this.updateProjectConfiguration(instanceId, projectName);
-            
+
             // Provision Cloudflare resources if template has placeholders
             const resourceProvisioningResult = await this.provisionTemplateResources(instanceId, projectName);
             if (!resourceProvisioningResult.success && resourceProvisioningResult.failed.length > 0) {
@@ -988,17 +1037,18 @@ export class SandboxSdkClient extends BaseSandboxService {
                 this.logger.info('Using tunnel url instead for preview as configured', { instanceId, tunnelURL });
                 previewURL = tunnelURL;
             }
-            
+
             // Always provision Crowdin OAuth clients (both dev and prod)
             const oauthProvisioningResult = await this.provisionCrowdinOAuth(instanceId, projectName, previewURL, localEnvVars);
             localEnvVars = oauthProvisioningResult.localEnvVars;
             if (!oauthProvisioningResult.success) {
                 this.logger.warn(`Crowdin OAuth failed to provision for ${instanceId}, but continuing setup process`);
             }
-            
+
             // Store wrangler.jsonc configuration in KV after resource provisioning
             try {
-                const wranglerConfigFile = await sandbox.readFile(`${instanceId}/wrangler.jsonc`);
+                const session = await this.getInstanceSession(instanceId);
+                const wranglerConfigFile = await session.readFile(`/workspace/${instanceId}/wrangler.jsonc`);
                 if (wranglerConfigFile.success) {
                     await env.VibecoderStore.put(this.getWranglerKVKey(instanceId), wranglerConfigFile.content);
                     this.logger.info('Wrangler configuration stored in KV', { instanceId });
@@ -1011,24 +1061,21 @@ export class SandboxSdkClient extends BaseSandboxService {
             }
 
             this.logger.info('Installing dependencies', { instanceId });
-            const installResult = await this.executeCommand(instanceId, `bun install`, 40000);
+            const installResult = await this.executeCommand(instanceId, `bun install`, { timeout: 40000 });
             this.logger.info('Dependencies installed', { instanceId, tunnelURL });
-                
+
             if (installResult.exitCode === 0) {
                 // Try to start development server in background
                 try {
                     if (localEnvVars) {
                         await this.setLocalEnvVars(instanceId, localEnvVars);
                     }
-                    // Initialize git repository
-                    await this.executeCommand(instanceId, `git init`);
-                    this.logger.info('Git repository initialized', { instanceId });
                     // Start dev server on allocated port
                     const processId = await this.startDevServer(instanceId, allocatedPort);
                     this.logger.info('Instance created successfully', { instanceId, processId, port: allocatedPort });
-                        
+
                     this.logger.info('Preview URL exposed', { instanceId, previewURL });
-                        
+
                     return { previewURL, tunnelURL, processId, allocatedPort };
                 } catch (error) {
                     this.logger.warn('Failed to start dev server', error);
@@ -1040,17 +1087,19 @@ export class SandboxSdkClient extends BaseSandboxService {
         } catch (error) {
             this.logger.warn('Failed to setup instance', error);
         }
-        
+
         return undefined;
     }
 
     private async fetchDontTouchFiles(templateName: string): Promise<string[]> {
         let donttouchFiles: string[] = [];
         try {
-            // Read .donttouch_files.json
-            const donttouchFile = await this.getSandbox().readFile(`${templateName}/.donttouch_files.json`);
-            if (donttouchFile.exitCode !== 0) {
-                this.logger.warn(`Failed to read .donttouch_files.json: ${donttouchFile.content}`);
+            // Read .donttouch_files.json using default session with full path
+            const session = await this.getDefaultSession();
+            const donttouchFile = await session.readFile(`${templateName}/.donttouch_files.json`);
+            if (!donttouchFile.success) {
+                this.logger.warn('Failed to read .donttouch_files.json');
+                return donttouchFiles;
             }
             donttouchFiles = JSON.parse(donttouchFile.content) as string[];
         } catch (error) {
@@ -1062,10 +1111,12 @@ export class SandboxSdkClient extends BaseSandboxService {
     private async fetchRedactedFiles(templateName: string): Promise<string[]> {
         let redactedFiles: string[] = [];
         try {
-            // Read .redacted_files.json
-            const redactedFile = await this.getSandbox().readFile(`${templateName}/.redacted_files.json`);
-            if (redactedFile.exitCode !== 0) {
-                this.logger.warn(`Failed to read .redacted_files.json: ${redactedFile.content}`);
+            // Read .redacted_files.json using default session with full path
+            const session = await this.getDefaultSession();
+            const redactedFile = await session.readFile(`${templateName}/.redacted_files.json`);
+            if (!redactedFile.success) {
+                this.logger.warn('Failed to read .redacted_files.json');
+                return redactedFiles;
             }
             redactedFiles = JSON.parse(redactedFile.content) as string[];
         } catch (error) {
@@ -1076,11 +1127,9 @@ export class SandboxSdkClient extends BaseSandboxService {
 
     async createInstance(templateName: string, projectName: string, webhookUrl?: string, localEnvVars?: Record<string, string>): Promise<BootstrapResponse> {
         try {
-            const sandbox = this.getSandbox();
-            // Set environment variables FIRST, before any other operations
+            // Environment variables will be set via session creation on first use
             if (localEnvVars && Object.keys(localEnvVars).length > 0) {
-                this.logger.info('Configuring environment variables', { envVars: Object.keys(localEnvVars) });
-                sandbox.setEnvVars(localEnvVars);
+                this.logger.info('Environment variables will be configured via session', { envVars: Object.keys(localEnvVars) });
             }
             if (env.ALLOCATION_STRATEGY === 'one_to_one') {
                 // Multiple instances shouldn't exist in the same sandbox
@@ -1109,10 +1158,10 @@ export class SandboxSdkClient extends BaseSandboxService {
                     }
                 }
             }
-            
+
             const instanceId = `i-${generateId()}`;
             this.logger.info('Creating sandbox instance', { instanceId, templateName, projectName });
-            
+
             let results: {previewURL: string, tunnelURL: string, processId: string, allocatedPort: number} | undefined;
             await this.ensureTemplateExists(templateName);
 
@@ -1120,12 +1169,12 @@ export class SandboxSdkClient extends BaseSandboxService {
                 this.fetchDontTouchFiles(templateName),
                 this.fetchRedactedFiles(templateName)
             ]);
-            
-            const moveTemplateResult = await sandbox.exec(`mv ${templateName} ${instanceId}`);
+
+            const moveTemplateResult = await this.safeSandboxExec(`mv ${templateName} ${instanceId}`);
             if (moveTemplateResult.exitCode !== 0) {
                 throw new Error(`Failed to move template: ${moveTemplateResult.stderr}`);
             }
-            
+
             const setupPromise = () => this.setupInstance(instanceId, projectName, localEnvVars);
             const setupResult = await setupPromise();
             if (!setupResult) {
@@ -1168,7 +1217,7 @@ export class SandboxSdkClient extends BaseSandboxService {
     }
 
     async getInstanceDetails(instanceId: string): Promise<GetInstanceResponse> {
-        try {            
+        try {
             // Get instance metadata
             const metadata = await this.getInstanceMetadata(instanceId);
             if (!metadata) {
@@ -1207,7 +1256,7 @@ export class SandboxSdkClient extends BaseSandboxService {
             };
         } catch (error) {
             this.logger.error('getInstanceDetails', error, { instanceId });
-            return { 
+            return {
                 success: false,
                 error: `Failed to get instance details: ${error instanceof Error ? error.message : 'Unknown error'}`
             };
@@ -1226,18 +1275,19 @@ export class SandboxSdkClient extends BaseSandboxService {
                     error: `Instance ${instanceId} not found`
                 };
             }
-            
+
             let isHealthy = true;
             try {
                 // Optionally check if process is still running
                 if (metadata.processId) {
                     for (let i = 0; i < 3; i++) {
                         try {
-                            const process = await this.getSandbox().getProcess(metadata.processId);
+                            const processes = await this.getSandbox().listProcesses();
+                            const process = processes.find((p: {id: string; status: string}) => p.id === metadata.processId);
                             isHealthy = !!(process && process.status === 'running');
                             break;
                         } catch (error) {
-                            this.logger.error(`Process ${metadata.processId} not found or not running, retrying...${i + 1}/3`, {error});
+                            this.logger.error(`Failed to check process ${metadata.processId}, retrying...${i + 1}/3`, {error});
                             isHealthy = false; // Process not found or not running
                         }
                     }
@@ -1269,7 +1319,7 @@ export class SandboxSdkClient extends BaseSandboxService {
 
     async shutdownInstance(instanceId: string): Promise<ShutdownResponse> {
         try {
-            // Check if instance exists 
+            // Check if instance exists
             const metadata = await this.getInstanceMetadata(instanceId);
             if (!metadata) {
                 return {
@@ -1281,7 +1331,7 @@ export class SandboxSdkClient extends BaseSandboxService {
             this.logger.info(`Shutting down instance: ${instanceId}`);
 
             const sandbox = this.getSandbox();
-            
+
             if (metadata.processId) {
                 try {
                     await sandbox.killProcess(metadata.processId);
@@ -1289,7 +1339,7 @@ export class SandboxSdkClient extends BaseSandboxService {
                     this.logger.warn(`Failed to kill process ${metadata.processId}`, error);
                 }
             }
-            
+
             // Unexpose the allocated port if we know what it was
             if (metadata.allocatedPort) {
                 try {
@@ -1299,11 +1349,14 @@ export class SandboxSdkClient extends BaseSandboxService {
                     this.logger.warn(`Failed to unexpose port ${metadata.allocatedPort}`, error);
                 }
             }
-            
-            // Clean up files
-            await sandbox.exec(`rm -rf /app/${instanceId}`);
 
-            // Invalidate cache since instance is being shutdown
+            // Clean up files
+            await this.safeSandboxExec(`rm -rf ${instanceId}`);
+
+            // Invalidate session cache
+            this.invalidateSessionCache(instanceId);
+
+            // Invalidate metadata cache since instance is being shutdown
             this.invalidateMetadataCache(instanceId);
 
             return {
@@ -1323,38 +1376,33 @@ export class SandboxSdkClient extends BaseSandboxService {
     // FILE OPERATIONS
     // ==========================================
 
-    async writeFiles(instanceId: string, files: WriteFilesRequest['files'], commitMessage?: string): Promise<WriteFilesResponse> {
+    async writeFiles(instanceId: string, files: WriteFilesRequest['files']): Promise<WriteFilesResponse> {
         try {
-            const sandbox = this.getSandbox();
+            const session = await this.getInstanceSession(instanceId);
 
             const results = [];
 
             // Filter out donttouch files
             const metadata = await this.getInstanceMetadata(instanceId);
             const donttouchFiles = new Set(metadata.donttouch_files);
-            
+
             const filteredFiles = files.filter(file => !donttouchFiles.has(file.filePath));
 
-            const writePromises = filteredFiles.map(file => sandbox.writeFile(`${instanceId}/${file.filePath}`, file.fileContents));
-            
-            const writeResults = await Promise.all(writePromises);
-            
+            // Use batch script for efficient writing (3 requests for any number of files)
+            const filesToWrite = filteredFiles.map(file => ({
+                path: `/workspace/${instanceId}/${file.filePath}`,
+                content: file.fileContents
+            }));
+
+            const writeResults = await this.writeFilesViaScript(filesToWrite, session);
+
+            // Map results back to original format
             for (const writeResult of writeResults) {
-                if (writeResult.success) {
-                    results.push({
-                        file: writeResult.path,
-                        success: true
-                    });
-                    
-                    this.logger.info('File written', { filePath: writeResult.path });
-                } else {
-                    this.logger.error('File write failed', { filePath: writeResult.path });
-                    results.push({
-                        file: writeResult.path,
-                        success: false,
-                        error: 'Unknown error'
-                    });
-                }
+                results.push({
+                    file: writeResult.file.replace(`/workspace/${instanceId}/`, ''),
+                    success: writeResult.success,
+                    error: writeResult.error
+                });
             }
 
             // Add files that were not written to results
@@ -1375,15 +1423,8 @@ export class SandboxSdkClient extends BaseSandboxService {
 
             // If code files were modified, touch vite.config.ts to trigger a rebuild
             if (successCount > 0 && filteredFiles.some(file => file.filePath.endsWith('.ts') || file.filePath.endsWith('.tsx'))) {
-                await sandbox.exec(`touch ${instanceId}/vite.config.ts`);
-            }
-
-            // Try to commit
-            try {
-                const commitResult = await this.createLatestCommit(instanceId, commitMessage || 'Initial commit');
-                this.logger.info('Files committed to git', { result: commitResult });
-            } catch (error) {
-                this.logger.error('Git commit failed', { error: error instanceof Error ? error.message : 'Unknown error' });
+                this.logger.info('Touching vite.config.ts to trigger rebuild');
+                await session.exec(`touch vite.config.ts`);
             }
 
             return {
@@ -1403,13 +1444,13 @@ export class SandboxSdkClient extends BaseSandboxService {
 
     async getFiles(templateOrInstanceId: string, filePaths?: string[], applyFilter: boolean = true, redactedFiles?: string[]): Promise<GetFilesResponse> {
         try {
-            const sandbox = this.getSandbox();
+            const session = await this.getInstanceSession(templateOrInstanceId);
 
             if (!filePaths) {
                 // Read '.important_files.json' in instance directory
-                const importantFiles = await sandbox.exec(`cd ${templateOrInstanceId} && jq -r '.[]' .important_files.json | while read -r path; do if [ -d "$path" ]; then find "$path" -type f; elif [ -f "$path" ]; then echo "$path"; fi; done`);
+                const importantFiles = await session.exec(`jq -r '.[]' .important_files.json | while read -r path; do if [ -d "$path" ]; then find "$path" -type f; elif [ -f "$path" ]; then echo "$path"; fi; done`);
                 this.logger.info(`Read important files: stdout: ${importantFiles.stdout}, stderr: ${importantFiles.stderr}`);
-                filePaths = importantFiles.stdout.split('\n').filter(path => path);
+                filePaths = importantFiles.stdout.split('\n').filter((path: string) => path);
                 if (!filePaths) {
                     return {
                         success: false,
@@ -1439,9 +1480,9 @@ export class SandboxSdkClient extends BaseSandboxService {
             const files = [];
             const errors = [];
 
-            const readPromises = filePaths.map(async (filePath) => {
+            const readPromises = filePaths.map(async (filePath: string) => {
                 try {
-                    const result = await sandbox.readFile(`${templateOrInstanceId}/${filePath}`);
+                    const result = await session.readFile(`/workspace/${templateOrInstanceId}/${filePath}`);
                     return {
                         result,
                         filePath
@@ -1454,9 +1495,9 @@ export class SandboxSdkClient extends BaseSandboxService {
                     };
                 }
             });
-        
+
             const readResults = await Promise.allSettled(readPromises);
-        
+
             for (const readResult of readResults) {
                 if (readResult.status === 'fulfilled') {
                     const { result, filePath } = readResult.value;
@@ -1465,7 +1506,7 @@ export class SandboxSdkClient extends BaseSandboxService {
                             filePath: filePath,
                             fileContents: (applyFilter && redactedPaths.has(filePath)) ? '[REDACTED]' : result.content
                         });
-                        
+
                         this.logger.info('File read successfully', { filePath });
                     } else {
                         this.logger.error('File read failed', { filePath });
@@ -1500,12 +1541,13 @@ export class SandboxSdkClient extends BaseSandboxService {
     // ==========================================
     // LOG RETRIEVAL
     // ==========================================
-    async getLogs(instanceId: string, onlyRecent?: boolean): Promise<GetLogsResponse> {
+    async getLogs(instanceId: string, onlyRecent?: boolean, durationSeconds?: number): Promise<GetLogsResponse> {
         try {
-            this.logger.info('Retrieving instance logs', { instanceId });
+            this.logger.info('Retrieving instance logs', { instanceId, durationSeconds });
             // Use CLI to get all logs and reset the file
-            const cmd = `timeout 10s monitor-cli logs get -i ${instanceId} --format raw ${onlyRecent ? '--reset' : ''}`;
-            const result = await this.executeCommand(instanceId, cmd, 15000);
+            const durationArg = durationSeconds ? `--duration ${durationSeconds}` : '';
+            const cmd = `timeout 10s monitor-cli logs get -i ${instanceId} --format raw ${onlyRecent ? '--reset' : ''} ${durationArg}`;
+            const result = await this.executeCommand(instanceId, cmd, { timeout: 15000 });
             return {
                 success: true,
                 logs: {
@@ -1534,15 +1576,11 @@ export class SandboxSdkClient extends BaseSandboxService {
     async executeCommands(instanceId: string, commands: string[], timeout?: number): Promise<ExecuteCommandsResponse> {
         try {
             const results: CommandExecutionResult[] = [];
-            
+
             for (const command of commands) {
                 try {
-                    const result = await this.executeCommand(instanceId, command, timeout);
-                    if (result.exitCode === 2 && result.stderr.includes('/bin/sh: 1: cd: can\'t cd to i-')) {
-                        throw new Error(result.stderr);
-                    }
-                    
-                    
+                    const result = await this.executeCommand(instanceId, command, { timeout });
+
                     results.push({
                         command,
                         success: result.exitCode === 0,
@@ -1550,11 +1588,11 @@ export class SandboxSdkClient extends BaseSandboxService {
                         error: result.stderr || undefined,
                         exitCode: result.exitCode
                     });
-                    
+
                     if (result.exitCode !== 0) {
                         this.logger.error('Command execution failed', { command, error: result.stderr });
                     }
-                    
+
                     this.logger.info('Command executed', { command, exitCode: result.exitCode, stdout: result.stdout, stderr: result.stderr });
                 } catch (error) {
                     this.logger.error('Command execution failed with error', { command, error });
@@ -1581,7 +1619,7 @@ export class SandboxSdkClient extends BaseSandboxService {
                     command: cmd,
                     success: false,
                     output: '',
-                    error: 'Instance error' 
+                    error: 'Instance error'
                 })),
                 error: `Failed to execute commands: ${error instanceof Error ? error.message : 'Unknown error'}`
             };
@@ -1596,8 +1634,8 @@ export class SandboxSdkClient extends BaseSandboxService {
         try {
             let errors: RuntimeError[] = [];
             const cmd = `timeout 3s monitor-cli errors list -i ${instanceId} --format json ${clear ? '--reset' : ''}`;
-            const result = await this.executeCommand(instanceId, cmd, 15000);
-            
+            const result = await this.executeCommand(instanceId, cmd, { timeout: 15000 });
+
             if (result.exitCode === 0) {
                 let response: {success: boolean, errors: StoredError[]};
                 try {
@@ -1617,7 +1655,7 @@ export class SandboxSdkClient extends BaseSandboxService {
                         hasErrors: errors.length > 0
                     };
                 }
-            } 
+            }
             this.logger.error(`Failed to get errors for instance ${instanceId}: STDERR: ${result.stderr}, STDOUT: ${result.stdout}`);
 
             return {
@@ -1644,8 +1682,8 @@ export class SandboxSdkClient extends BaseSandboxService {
             // Try enhanced error system first - clear ALL errors
             try {
                 const cmd = `timeout 10s monitor-cli errors clear -i ${instanceId} --confirm`;
-                const result = await this.executeCommand(instanceId, cmd, 15000); // 15 second timeout
-                
+                const result = await this.executeCommand(instanceId, cmd, { timeout: 15000 }); // 15 second timeout
+
                 if (result.exitCode === 0) {
                     let response: any;
                     try {
@@ -1688,7 +1726,7 @@ export class SandboxSdkClient extends BaseSandboxService {
         try {
             const lintIssues: CodeIssue[] = [];
             const typecheckIssues: CodeIssue[] = [];
-            
+
             // Run ESLint and TypeScript check in parallel
             const [lintResult, tscResult] = await Promise.allSettled([
                 this.executeCommand(instanceId, 'bun run lint'),
@@ -1716,7 +1754,7 @@ export class SandboxSdkClient extends BaseSandboxService {
                     rawOutput: ''
                 }
             };
-            
+
             // Process ESLint results
             if (lintResult.status === 'fulfilled') {
                 try {
@@ -1730,7 +1768,7 @@ export class SandboxSdkClient extends BaseSandboxService {
                             ruleId?: string;
                         }>;
                     }>;
-                    
+
                     for (const fileResult of lintData) {
                         for (const message of fileResult.messages || []) {
                             lintIssues.push({
@@ -1739,7 +1777,7 @@ export class SandboxSdkClient extends BaseSandboxService {
                                 line: message.line || 0,
                                 column: message.column,
                                 severity: this.mapESLintSeverity(message.severity),
-                                ruleId: message.ruleId,
+                                ruleId: message.ruleId || '',
                                 source: 'eslint'
                             });
                         }
@@ -1758,22 +1796,22 @@ export class SandboxSdkClient extends BaseSandboxService {
             } else if (lintResult.status === 'rejected') {
                 this.logger.warn('ESLint analysis failed', lintResult.reason);
             }
-            
+
             // Process TypeScript check results
             if (tscResult.status === 'fulfilled') {
                 try {
                     // TypeScript errors can come from either stdout or stderr
                     const output = tscResult.value.stderr || tscResult.value.stdout;
-                    
+
                     if (!output || output.trim() === '') {
                         this.logger.info('No TypeScript output to parse');
                     } else {
                         this.logger.info(`Parsing TypeScript output: ${output.substring(0, 200)}...`);
-                        
+
                         // Split by lines and parse each error
                         const lines = output.split('\n');
                         let currentError: any = null;
-                        
+
                         for (const line of lines) {
                             // Match TypeScript error format: path(line,col): error TSxxxx: message
                             const match = line.match(/^(.+?)\((\d+),(\d+)\): error TS(\d+): (.*)$/);
@@ -1782,7 +1820,7 @@ export class SandboxSdkClient extends BaseSandboxService {
                                 if (currentError) {
                                     typecheckIssues.push(currentError);
                                 }
-                                
+
                                 // Start building new error
                                 currentError = {
                                     message: match[5].trim(),
@@ -1793,25 +1831,25 @@ export class SandboxSdkClient extends BaseSandboxService {
                                     source: 'typescript',
                                     ruleId: `TS${match[4]}`
                                 };
-                                
+
                                 this.logger.info(`Found TypeScript error: ${currentError.filePath}:${currentError.line} - ${currentError.ruleId}`);
                             } else if (currentError && line.trim() && !line.startsWith('src/') && !line.includes(': error TS')) {
                                 // This might be a continuation of the error message
                                 currentError.message += ' ' + line.trim();
                             }
                         }
-                        
+
                         // Add the last error if it exists
                         if (currentError) {
                             typecheckIssues.push(currentError);
                         }
-                        
+
                         this.logger.info(`Parsed ${typecheckIssues.length} TypeScript errors`);
                     }
                 } catch (error) {
                     this.logger.warn('Failed to parse TypeScript output', error);
                 }
-                
+
                 results.typecheck.issues = typecheckIssues;
                 results.typecheck.summary = {
                     errorCount: typecheckIssues.filter(issue => issue.severity === 'error').length,
@@ -1839,63 +1877,6 @@ export class SandboxSdkClient extends BaseSandboxService {
         }
     }
 
-    // Development utility method for fixing code issues
-    async fixCodeIssues(instanceId: string, allFiles?: FileObject[]): Promise<CodeFixResult> {
-        try {
-            this.logger.info(`Fixing code issues for ${instanceId}`);
-            // First run static analysis
-            const analysisResult = await this.runStaticAnalysisCode(instanceId);
-            this.logger.info(`Static analysis completed for ${instanceId}`);
-            // Then get all the files
-            const files = allFiles || (await this.getFiles(instanceId)).files;
-            this.logger.info(`Files retrieved for ${instanceId}`);
-            
-            // Create file fetcher callback
-            const fileFetcher: FileFetcher = async (filePath: string) => {
-                // Fetch a single file from the instance
-                try {
-                    const result = await this.getSandbox().readFile(`${instanceId}/${filePath}`);
-                    if (result.success) {
-                        this.logger.info(`Successfully fetched file: ${filePath}`);
-                        return {
-                            filePath: filePath,
-                            fileContents: result.content,
-                            filePurpose: `Fetched file: ${filePath}`
-                        };
-                    } else {
-                        this.logger.debug(`File not found: ${filePath}`);
-                    }
-                } catch (error) {
-                    this.logger.debug(`Failed to fetch file ${filePath}: ${error instanceof Error ? error.message : 'Unknown error'}`);
-                }
-                return null;
-            };
-
-            // Use the new functional API
-            const fixResult = await fixProjectIssues(
-                files.map(file => ({
-                    filePath: file.filePath,
-                    fileContents: file.fileContents,
-                    filePurpose: ''
-                })),
-                analysisResult.typecheck.issues,
-                fileFetcher
-            );
-            fixResult.modifiedFiles.forEach((file: FileObject) => {
-                this.getSandbox().writeFile(`${instanceId}/${file.filePath}`, file.fileContents);
-            });
-            this.logger.info(`Code fix completed for ${instanceId}`);
-            return fixResult;
-        } catch (error) {
-            this.logger.error('fixCodeIssues', error, { instanceId });
-            return {
-                fixedIssues: [],
-                unfixableIssues: [],
-                modifiedFiles: []
-            };
-        }
-    }
-
     private mapESLintSeverity(severity: number): LintSeverity {
         switch (severity) {
             case 1: return 'warning';
@@ -1910,22 +1891,21 @@ export class SandboxSdkClient extends BaseSandboxService {
     async deployToCloudflareWorkers(instanceId: string): Promise<DeploymentResult> {
         try {
             this.logger.info('Starting deployment', { instanceId });
-            
+
             // Get project metadata
             const metadata = await this.getInstanceMetadata(instanceId);
             const projectName = metadata?.projectName || instanceId;
-            
+
             // Get credentials from environment (secure - no exposure to external processes)
             const accountId = env.CLOUDFLARE_ACCOUNT_ID;
             const apiToken = env.CLOUDFLARE_API_TOKEN;
-            
+
             if (!accountId || !apiToken) {
                 throw new Error('CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN must be set in environment');
             }
-            
-            const sandbox = this.getSandbox();
+
             this.logger.info('Processing deployment', { instanceId });
-            
+
             // Step 1: Run build commands (bun run build && bunx wrangler build)
             this.logger.info('Building project');
             const buildResult = await this.executeCommand(instanceId, 'bun run build');
@@ -1933,76 +1913,76 @@ export class SandboxSdkClient extends BaseSandboxService {
                 this.logger.warn('Build step failed or not available', buildResult.stdout, buildResult.stderr);
                 throw new Error(`Build failed: ${buildResult.stderr}`);
             }
-            
+
             const wranglerBuildResult = await this.executeCommand(instanceId, 'bunx wrangler build');
             if (wranglerBuildResult.exitCode !== 0) {
                 this.logger.warn('Wrangler build failed', wranglerBuildResult.stdout, wranglerBuildResult.stderr);
                 // Continue anyway - some projects might not need wrangler build
             }
-            
+
             // Step 2: Parse wrangler config from KV
             this.logger.info('Reading wrangler configuration from KV');
             let wranglerConfigContent = await env.VibecoderStore.get(this.getWranglerKVKey(instanceId));
-            
+
             if (!wranglerConfigContent) {
                 // This should never happen unless KV itself has some issues
                 throw new Error(`Wrangler config not found in KV for ${instanceId}`);
             } else {
                 this.logger.info('Using wrangler configuration from KV');
             }
-            
+
             const config = parseWranglerConfig(wranglerConfigContent);
-            
+
             this.logger.info('Worker configuration', { scriptName: config.name });
             this.logger.info('Worker compatibility', { compatibilityDate: config.compatibility_date });
-            
+
             // Step 3: Read worker script from dist
             this.logger.info('Reading worker script');
-            const workerPath = `${instanceId}/dist/index.js`;
-            const workerFile = await sandbox.readFile(workerPath);
+            const session = await this.getInstanceSession(instanceId);
+            const workerFile = await session.readFile(`/workspace/${instanceId}/dist/index.js`);
             if (!workerFile.success) {
-                throw new Error(`Worker script not found at ${workerPath}. Please build the project first.`);
+                throw new Error(`Worker script not found at /${instanceId}/dist/index.js. Please build the project first.`);
             }
-            
+
             const workerContent = workerFile.content;
             this.logger.info('Worker script loaded', { sizeKB: (workerContent.length / 1024).toFixed(2) });
-            
+
             // Step 3a: Check for additional worker modules (ESM imports)
             // Process them the same way as assets but as strings for the Map
             let additionalModules: Map<string, string> | undefined;
             try {
                 const workerAssetsPath = `${instanceId}/dist/assets`;
-                const workerAssetsResult = await sandbox.exec(`test -d ${workerAssetsPath} && echo "exists" || echo "missing"`);
+                const workerAssetsResult = await this.safeSandboxExec(`test -d ${workerAssetsPath} && echo "exists" || echo "missing"`);
                 const hasWorkerAssets = workerAssetsResult.exitCode === 0 && workerAssetsResult.stdout.trim() === "exists";
-                
+
                 if (hasWorkerAssets) {
                     this.logger.info('Processing additional worker modules', { workerAssetsPath });
-                    
+
                     // Find all JS files in the worker assets directory
-                    const findResult = await sandbox.exec(`find ${workerAssetsPath} -type f -name "*.js"`);
+                    const findResult = await this.safeSandboxExec(`find ${workerAssetsPath} -type f -name "*.js"`);
                     if (findResult.exitCode === 0) {
-                        const modulePaths = findResult.stdout.trim().split('\n').filter(path => path);
-                        
+                        const modulePaths = findResult.stdout.trim().split('\n').filter((path: string) => path.trim());
+
                         if (modulePaths.length > 0) {
                             additionalModules = new Map<string, string>();
-                            
+
                             for (const fullPath of modulePaths) {
                                 const relativePath = fullPath.replace(`${instanceId}/dist/`, '');
-                                
+
                                 try {
                                     const buffer = await this.readFileAsBase64Buffer(fullPath);
                                     const moduleContent = buffer.toString('utf8');
                                     additionalModules.set(relativePath, moduleContent);
-                                    
-                                    this.logger.info('Worker module loaded', { 
-                                        path: relativePath, 
-                                        sizeKB: (moduleContent.length / 1024).toFixed(2) 
+
+                                    this.logger.info('Worker module loaded', {
+                                        path: relativePath,
+                                        sizeKB: (moduleContent.length / 1024).toFixed(2)
                                     });
                                 } catch (error) {
                                     this.logger.warn(`Failed to read worker module ${fullPath}:`, error);
                                 }
                             }
-                            
+
                             if (additionalModules.size > 0) {
                                 this.logger.info('Found additional worker modules', { count: additionalModules.size });
                             }
@@ -2012,15 +1992,15 @@ export class SandboxSdkClient extends BaseSandboxService {
             } catch (error) {
                 this.logger.error('Failed to process additional worker modules:', error);
             }
-            
+
             // Step 4: Check for static assets and process them
             const assetsPath = `${instanceId}/dist/client`;
             let assetsManifest: Record<string, { hash: string; size: number }> | undefined;
             let fileContents: Map<string, Buffer> | undefined;
-            
-            const assetDirResult = await sandbox.exec(`test -d ${assetsPath} && echo "exists" || echo "missing"`);
+
+            const assetDirResult = await this.safeSandboxExec(`test -d ${assetsPath} && echo "exists" || echo "missing"`);
             const hasAssets = assetDirResult.exitCode === 0 && assetDirResult.stdout.trim() === "exists";
-            
+
             if (hasAssets) {
                 this.logger.info('Processing static assets', { assetsPath });
                 const assetProcessResult = await this.processAssetsInSandbox(instanceId, assetsPath);
@@ -2029,14 +2009,14 @@ export class SandboxSdkClient extends BaseSandboxService {
             } else {
                 this.logger.info('No static assets found, deploying worker only');
             }
-            
+
             // Step 5: Override config for dispatch deployment
             const dispatchConfig = {
                 ...config,
                 name: config.name
             };
-        
-            
+
+
             // Step 6: Build deployment config using pure function
             const deployConfig = buildDeploymentConfig(
                 dispatchConfig,
@@ -2046,7 +2026,7 @@ export class SandboxSdkClient extends BaseSandboxService {
                 assetsManifest,
                 config.compatibility_flags
             );
-            
+
             // Step 7: Deploy using pure function
             this.logger.info('Deploying to Cloudflare');
             if ('DISPATCH_NAMESPACE' in env) {
@@ -2064,18 +2044,18 @@ export class SandboxSdkClient extends BaseSandboxService {
             } else {
                 throw new Error('DISPATCH_NAMESPACE not found in environment variables, cannot deploy without dispatch namespace');
             }
-            
+
             // Step 8: Determine deployment URL
             const deployedUrl = `${this.getProtocolForHost()}://${projectName}.${getPreviewDomain(env)}`;
             const deploymentId = projectName;
-            
-            this.logger.info('Deployment successful', { 
+
+            this.logger.info('Deployment successful', {
                 instanceId,
-                deployedUrl, 
+                deployedUrl,
                 deploymentId,
                 mode: 'dispatch-namespace'
             });
-            
+
             return {
                 success: true,
                 message: `Successfully deployed ${instanceId} using secure API deployment`,
@@ -2083,7 +2063,7 @@ export class SandboxSdkClient extends BaseSandboxService {
                 deploymentId,
                 output: `Deployed`
             };
-            
+
         } catch (error) {
             this.logger.error('deployToCloudflareWorkers', error, { instanceId });
             return {
@@ -2093,7 +2073,7 @@ export class SandboxSdkClient extends BaseSandboxService {
             };
         }
     }
-    
+
     /**
      * Process static assets in sandbox and create manifest for deployment
      */
@@ -2101,58 +2081,55 @@ export class SandboxSdkClient extends BaseSandboxService {
         assetsManifest: Record<string, { hash: string; size: number }>;
         fileContents: Map<string, Buffer>;
     }> {
-        const sandbox = this.getSandbox();
-        
         // Get list of all files in assets directory
-        const findResult = await sandbox.exec(`find ${assetsPath} -type f`);
+        const findResult = await this.safeSandboxExec(`find ${assetsPath} -type f`);
         if (findResult.exitCode !== 0) {
             throw new Error(`Failed to list assets: ${findResult.stderr}`);
         }
-        
-        const filePaths = findResult.stdout.trim().split('\n').filter(path => path);
+
+        const filePaths = findResult.stdout.trim().split('\n').filter((path: string) => path);
         this.logger.info('Asset files found', { count: filePaths.length });
-        
+
         const fileContents = new Map<string, Buffer>();
         const filesAsArrayBuffer = new Map<string, ArrayBuffer>();
-        
+
         // Read each file and calculate hashes
         for (const fullPath of filePaths) {
             const relativePath = fullPath.replace(`${assetsPath}/`, '/');
-            
+
             try {
                 // Use base64 encoding to preserve binary files and Unicode
                 const buffer = await this.readFileAsBase64Buffer(fullPath);
                 fileContents.set(relativePath, buffer);
-                
+
                 const arrayBuffer = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength) as ArrayBuffer;
                 filesAsArrayBuffer.set(relativePath, arrayBuffer);
-                
+
                 this.logger.info('Asset file processed', { path: relativePath, sizeBytes: buffer.length });
             } catch (error) {
                 this.logger.warn(`Failed to read asset file ${fullPath}:`, error);
             }
         }
-        
+
         // Create asset manifest using pure function
         const assetsManifest = await createAssetManifest(filesAsArrayBuffer);
         const assetCount = Object.keys(assetsManifest).length;
         this.logger.info('Asset manifest created', { assetCount });
-        
+
         return { assetsManifest, fileContents };
     }
-    
+
     /**
      * Read file from sandbox as base64 and convert to Buffer
+     * Uses default session for deployment file operations with absolute paths
      */
     private async readFileAsBase64Buffer(filePath: string): Promise<Buffer> {
-        const sandbox = this.getSandbox();
-        
         // Use base64 with no line wrapping (-w 0) to preserve binary data
-        const base64Result = await sandbox.exec(`base64 -w 0 "${filePath}"`);
+        const base64Result = await this.safeSandboxExec(`base64 -w 0 "${filePath}"`);
         if (base64Result.exitCode !== 0) {
             throw new Error(`Failed to encode file: ${base64Result.stderr}`);
         }
-        
+
         return Buffer.from(base64Result.stdout, 'base64');
     }
 
@@ -2166,332 +2143,5 @@ export class SandboxSdkClient extends BaseSandboxService {
             return 'http';
         }
         return 'https';
-    }
-
-    // ==========================================
-    // GITHUB INTEGRATION
-    // ==========================================
-
-    private async createLatestCommit(instanceId: string, commitMessage: string): Promise<string> {
-        // Sanitize commit message to prevent shell injection
-        // Remove control characters, limit length, and escape special characters
-        const sanitizedMessage = commitMessage
-            .substring(0, 500) // Limit message length
-            .replace(/[\x00-\x1F\x7F]/g, '') // Remove control characters
-            .replace(/[`$\\]/g, '\\$&') // Escape backticks, dollar signs, and backslashes
-            .replace(/"/g, '\\"') // Escape double quotes
-            .trim() || 'Auto-commit'; // Fallback to default message if empty
-        
-        // Check if there are changes to commit
-        const statusResult = await this.executeCommand(instanceId, `git status --porcelain`);
-        if (statusResult.exitCode !== 0) {
-            this.logger.warn(`Git status check failed: ${statusResult.stderr}`);
-        } else if (!statusResult.stdout.trim()) {
-            this.logger.info('No changes to commit');
-            // Return current HEAD if no changes
-            const hashResult = await this.executeCommand(instanceId, `git rev-parse HEAD`);
-            if (hashResult.exitCode === 0) {
-                return hashResult.stdout.trim();
-            }
-            throw new Error(`No commits found in repository: ${hashResult.stderr}`);
-        }
-        
-        // Add all changes (including untracked files)
-        const addResult = await this.executeCommand(instanceId, `git add -A`);
-        if (addResult.exitCode !== 0) {
-            // Try alternative add command if the first fails
-            const altAddResult = await this.executeCommand(instanceId, `git add . 2>/dev/null || git add --all`);
-            if (altAddResult.exitCode !== 0) {
-                throw new Error(`Git add failed: ${addResult.stderr || altAddResult.stderr}`);
-            }
-        }
-        
-        // Commit with sanitized message
-        const commitResult = await this.executeCommand(instanceId, `git commit -m "${sanitizedMessage}" --allow-empty-message`);
-        if (commitResult.exitCode !== 0) {
-            // Check if error is due to no changes (shouldn't happen due to earlier check, but be safe)
-            if (commitResult.stdout.includes('nothing to commit') || 
-                commitResult.stderr.includes('nothing to commit')) {
-                this.logger.info('Nothing to commit, working tree clean');
-                const hashResult = await this.executeCommand(instanceId, `git rev-parse HEAD`);
-                if (hashResult.exitCode === 0) {
-                    return hashResult.stdout.trim();
-                }
-            }
-            throw new Error(`Git commit failed: ${commitResult.stderr}`);
-        }
-        
-        // Extract commit hash from the commit result
-        const hashResult = await this.executeCommand(instanceId, `git rev-parse HEAD`);
-        if (hashResult.exitCode === 0) {
-            return hashResult.stdout.trim();
-        }
-        throw new Error(`Git rev-parse failed: ${hashResult.stderr}`);
-    }
-
-    /**
-     * Push files to GitHub using secure API-based approach
-     * Extracts git context from sandbox and delegates to GitHubService
-     */
-    async pushToGitHub(instanceId: string, request: GitHubPushRequest, allFiles: FileOutputType[]): Promise<GitHubPushResponse> {
-        // Validate required parameters
-        if (!instanceId?.trim()) {
-            return {
-                success: false,
-                error: 'Instance ID is required'
-            };
-        }
-
-        if (!request?.cloneUrl?.trim()) {
-            return {
-                success: false,
-                error: 'Clone URL is required'
-            };
-        }
-
-        if (!request?.token?.trim()) {
-            return {
-                success: false,
-                error: 'GitHub token is required'
-            };
-        }
-
-        if (!request?.email?.trim() || !request?.username?.trim()) {
-            return {
-                success: false,
-                error: 'Git user email and username are required'
-            };
-        }
-
-        try {
-            this.logger.info(`Starting GitHub push for instance ${instanceId}`);
-
-            // Extract git context from local repository
-            const gitContext = await this.extractGitContext(instanceId);
-            
-            if (!gitContext.isGitRepo) {
-                this.logger.error('No git repository found in sandbox');
-                return {
-                    success: false,
-                    error: 'No git repository found in sandbox instance'
-                };
-            }
-
-            // Auto-commit any uncommitted or untracked changes before push
-            let finalGitContext = gitContext;
-            if (gitContext.hasUncommittedChanges || gitContext.hasUntrackedFiles) {
-                this.logger.info('Auto-committing changes before GitHub push', {
-                    hasUncommittedChanges: gitContext.hasUncommittedChanges,
-                    hasUntrackedFiles: gitContext.hasUntrackedFiles,
-                    untrackedFileCount: gitContext.untrackedFiles.length
-                });
-                
-                try {
-                    // Auto-commit all changes
-                    await this.createLatestCommit(instanceId, 'Auto-commit before GitHub push');
-                    
-                    // Re-extract git context after commit
-                    finalGitContext = await this.extractGitContext(instanceId);
-                    this.logger.info('Auto-commit successful', {
-                        newCommitCount: finalGitContext.localCommits.length
-                    });
-                } catch (error) {
-                    this.logger.error('Auto-commit failed', error);
-                    return {
-                        success: false,
-                        error: `Failed to auto-commit changes: ${error instanceof Error ? error.message : 'Unknown error'}`
-                    };
-                }
-            }
-
-            // Use broader file selection - all files if we have any, otherwise tracked files
-            const filesToUse = finalGitContext.allFiles.length > 0 ? finalGitContext.allFiles : finalGitContext.trackedFiles;
-            const filesToUseSet = new Set(filesToUse);
-            const cachedFiles = allFiles.filter(file => filesToUseSet.has(file.filePath) && file.fileContents.trim() !== '[REDACTED]');
-            const cachedFilePaths = new Set(cachedFiles.map(file => file.filePath));
-            const filesToFetch = filesToUse.filter(file => !cachedFilePaths.has(file));
-            const filesNotCached = await this.getFileDirect(instanceId, filesToFetch);
-            const files = [...cachedFiles, ...filesNotCached];
-
-            this.logger.info(`Total files to push: ${files.length}`, {
-                cachedFilePaths,
-                filesToFetch,
-                filesToUse,
-            });
-            
-            if (files.length === 0) {
-                this.logger.warn('No files found to push');
-                return {
-                    success: true,
-                    commitSha: undefined
-                };
-            }
-
-            // Delegate to secure GitHub service
-            const result = await GitHubService.pushFilesToRepository(files, request, {
-                localCommits: finalGitContext.localCommits,
-                hasUncommittedChanges: finalGitContext.hasUncommittedChanges
-            });
-            
-            this.logger.info('GitHub push completed', { 
-                instanceId, 
-                success: result.success, 
-                commitSha: result.commitSha,
-                localCommitCount: finalGitContext.localCommits.length,
-                fileCount: files.length
-            });
-
-            return result;
-
-        } catch (error) {
-            this.logger.error('pushToGitHub failed', error, { instanceId, repositoryUrl: request.repositoryHtmlUrl });
-            
-            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-            
-            return {
-                success: false,
-                error: `Secure GitHub push failed: ${errorMessage}`,
-                details: {
-                    operation: 'secure_api_push',
-                    stderr: errorMessage
-                }
-            };
-        }
-    }
-
-    /**
-     * Read contents of any file
-     */
-    private async getFileDirect(instanceId: string, filePaths: string[]): Promise<{
-        filePath: string;
-        fileContents: string;
-    }[]> {
-        const files: { filePath: string; fileContents: string; }[] = [];
-
-        this.logger.info(`Reading ${filePaths.length} files`, { instanceId });
-
-        for (const filePath of filePaths) {
-            try {
-                const readResult = await this.getSandbox().readFile(`${instanceId}/${filePath}`);
-                if (readResult.success && readResult.content) {
-                    files.push({
-                        filePath,
-                        fileContents: readResult.content
-                    });
-                    this.logger.debug(`Successfully read file: ${filePath}`, { sizeBytes: readResult.content.length });
-                } else {
-                    this.logger.warn(`File read failed or empty: ${filePath}`);
-                }
-            } catch (error) {
-                this.logger.warn(`Failed to read file ${filePath}`, error);
-            }
-        }
-
-        this.logger.info(`Successfully read ${files.length}/${filePaths.length} files`);
-        return files;
-    }
-
-    /**
-     * Extract git history and file tracking information from local repository
-     */
-    private async extractGitContext(instanceId: string): Promise<{
-        localCommits: Array<{
-            hash: string;
-            message: string;
-            timestamp: string;
-        }>;
-        trackedFiles: string[];
-        untrackedFiles: string[];
-        allFiles: string[];
-        hasUncommittedChanges: boolean;
-        hasUntrackedFiles: boolean;
-        isGitRepo: boolean;
-    }> {
-        try {
-            // First check if this is even a git repository
-            const gitCheckResult = await this.executeCommand(instanceId, 'git status');
-            if (gitCheckResult.exitCode !== 0) {
-                this.logger.warn('Not a git repository or git not initialized', { instanceId });
-                return {
-                    localCommits: [],
-                    trackedFiles: [],
-                    untrackedFiles: [],
-                    allFiles: [],
-                    hasUncommittedChanges: false,
-                    hasUntrackedFiles: false,
-                    isGitRepo: false
-                };
-            }
-
-            // Get full commit history (oldest first to preserve order for GitHub)
-            const logResult = await this.executeCommand(instanceId, 'git log --oneline --reverse --pretty=format:"%H|%s|%cI"');
-            const localCommits: Array<{hash: string; message: string; timestamp: string}> = [];
-            
-            if (logResult.exitCode === 0 && logResult.stdout.trim()) {
-                const commitLines = logResult.stdout.trim().split('\n');
-                for (const line of commitLines) {
-                    const [hash, message, timestamp] = line.split('|');
-                    if (hash && message) {
-                        localCommits.push({
-                            hash: hash.trim(),
-                            message: message.trim(),
-                            timestamp: timestamp?.trim() || new Date().toISOString()
-                        });
-                    }
-                }
-            }
-
-            // Get git-tracked files (respects .gitignore)
-            const lsFilesResult = await this.executeCommand(instanceId, 'git ls-files');
-            const trackedFiles = lsFilesResult.exitCode === 0 
-                ? lsFilesResult.stdout.trim().split('\n').filter(f => f.trim())
-                : [];
-
-            // Get untracked files (respects .gitignore)
-            const untrackedResult = await this.executeCommand(instanceId, 'git ls-files --others --exclude-standard');
-            const untrackedFiles = untrackedResult.exitCode === 0
-                ? untrackedResult.stdout.trim().split('\n').filter(f => f.trim())
-                : [];
-
-            // Combine all files
-            const allFiles = [...trackedFiles, ...untrackedFiles];
-
-            // Check if there are uncommitted changes (staged or modified)
-            const statusResult = await this.executeCommand(instanceId, 'git status --porcelain');
-            const hasUncommittedChanges = statusResult.exitCode === 0 && statusResult.stdout.trim().length > 0;
-            const hasUntrackedFiles = untrackedFiles.length > 0;
-
-            this.logger.info('Full git context extracted', {
-                instanceId,
-                localCommitCount: localCommits.length,
-                trackedFileCount: trackedFiles.length,
-                untrackedFileCount: untrackedFiles.length,
-                totalFileCount: allFiles.length,
-                hasUncommittedChanges,
-                hasUntrackedFiles,
-                latestCommit: localCommits[localCommits.length - 1]?.message
-            });
-
-            return { 
-                localCommits, 
-                trackedFiles,
-                untrackedFiles,
-                allFiles,
-                hasUncommittedChanges,
-                hasUntrackedFiles,
-                isGitRepo: true 
-            };
-        } catch (error) {
-            this.logger.warn('Failed to extract git context, using defaults', error);
-            return {
-                localCommits: [],
-                trackedFiles: [],
-                untrackedFiles: [],
-                allFiles: [],
-                hasUncommittedChanges: false,
-                hasUntrackedFiles: false,
-                isGitRepo: false
-            };
-        }
     }
 }

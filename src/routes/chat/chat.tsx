@@ -10,7 +10,8 @@ import { ArrowRight, Image as ImageIcon } from 'react-feather';
 import { useParams, useSearchParams, useNavigate } from 'react-router';
 import { MonacoEditor } from '../../components/monaco-editor/monaco-editor';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Expand, Github, LoaderCircle, RefreshCw } from 'lucide-react';
+import { Expand, Github, GitBranch, LoaderCircle, RefreshCw, MoreHorizontal, RotateCcw, X } from 'lucide-react';
+import clsx from 'clsx';
 import { Blueprint } from './components/blueprint';
 import { FileExplorer } from './components/file-explorer';
 import { UserMessage, AIMessage } from './components/messages';
@@ -25,15 +26,21 @@ import { Copy } from './components/copy';
 import { useFileContentStream } from './hooks/use-file-content-stream';
 import { logger } from '@/utils/logger';
 import { useApp } from '@/hooks/use-app';
+import { useAuth } from '@/contexts/auth-context';
 import { AgentModeDisplay } from '@/components/agent-mode-display';
 import { useGitHubExport } from '@/hooks/use-github-export';
 import { GitHubExportModal } from '@/components/github-export-modal';
+import { GitCloneModal } from '@/components/shared/GitCloneModal';
 import { ModelConfigInfo } from './components/model-config-info';
 import { useAutoScroll } from '@/hooks/use-auto-scroll';
 import { useImageUpload } from '@/hooks/use-image-upload';
 import { useDragDrop } from '@/hooks/use-drag-drop';
 import { ImageAttachmentPreview } from '@/components/image-attachment-preview';
 import { createAIMessage } from './utils/message-helpers';
+import { Button } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { sendWebSocketMessage } from './utils/websocket-helpers';
 
 export default function Chat() {
 	const { chatId: urlChatId } = useParams();
@@ -55,7 +62,7 @@ export default function Chat() {
 	}, [searchParams]);
 
 	// Load existing app data if chatId is provided
-	const { app, loading: appLoading } = useApp(urlChatId);
+	const { app, loading: appLoading, refetch: refetchApp } = useApp(urlChatId);
 
 	// If we have an existing app, use its data
 	const displayQuery = app ? app.originalPrompt || app.title : userQuery || '';
@@ -128,6 +135,10 @@ export default function Chat() {
 		shouldRefreshPreview,
 		// Preview deployment state
 		isPreviewDeploying,
+		// Issue tracking and debugging state
+		runtimeErrorCount,
+		staticIssueCount,
+		isDebugging,
 	} = useChat({
 		chatId: urlChatId,
 		query: userQuery,
@@ -137,7 +148,8 @@ export default function Chat() {
 	});
 
 	// GitHub export functionality - use urlChatId directly from URL params
-	const githubExport = useGitHubExport(websocket, urlChatId);
+	const githubExport = useGitHubExport(websocket, urlChatId, refetchApp);
+	const { user } = useAuth();
 
 	const navigate = useNavigate();
 
@@ -152,6 +164,9 @@ export default function Chat() {
 	// Debug panel state
 	const [debugMessages, setDebugMessages] = useState<DebugMessage[]>([]);
 	const deploymentControlsRef = useRef<HTMLDivElement>(null);
+
+	const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
+	const [isGitCloneModalOpen, setIsGitCloneModalOpen] = useState(false);
 
 	// Model config info state
 	const [modelConfigs, setModelConfigs] = useState<{
@@ -240,6 +255,12 @@ export default function Chat() {
 	const handleViewModeChange = useCallback((mode: 'preview' | 'editor' | 'blueprint') => {
 		setView(mode);
 	}, []);
+
+	const handleResetConversation = useCallback(() => {
+		if (!websocket) return;
+		sendWebSocketMessage(websocket, 'clear_conversation');
+		setIsResetDialogOpen(false);
+	}, [websocket]);
 
 	// // Terminal functions
 	// const handleTerminalCommand = useCallback((command: string) => {
@@ -394,7 +415,8 @@ export default function Chat() {
 	}, [isGeneratingBlueprint, view]);
 
 	useEffect(() => {
-		if (doneStreaming && !isGeneratingBlueprint && !blueprint) {
+		// Only show bootstrap completion message for NEW chats, not when reloading existing ones
+		if (doneStreaming && !isGeneratingBlueprint && !blueprint && urlChatId === 'new') {
 			onCompleteBootstrap();
 			sendAiMessage(
 				createAIMessage(
@@ -410,6 +432,7 @@ export default function Chat() {
 		sendAiMessage,
 		blueprint,
 		onCompleteBootstrap,
+		urlChatId,
 	]);
 
 	const isRunning = useMemo(() => {
@@ -418,17 +441,15 @@ export default function Chat() {
 		);
 	}, [isBootstrapping, isGeneratingBlueprint]);
 
-	// Check if chat input should be disabled (before blueprint completion and agentId assignment)
+	// Check if chat input should be disabled (before blueprint completion, or during debugging)
 	const isChatDisabled = useMemo(() => {
 		const blueprintStage = projectStages.find(
 			(stage) => stage.id === 'blueprint',
 		);
-		const isBlueprintComplete = blueprintStage?.status === 'completed';
-		const hasAgentId = !!chatId;
+		const blueprintNotCompleted = !blueprintStage || blueprintStage.status !== 'completed';
 
-		// Disable until both blueprint is complete AND we have an agentId
-		return !isBlueprintComplete || !hasAgentId;
-	}, [projectStages, chatId]);
+		return blueprintNotCompleted || isDebugging;
+	}, [projectStages, isDebugging]);
 
 	const chatFormRef = useRef<HTMLFormElement>(null);
 	const { isDragging: isChatDragging, dragHandlers: chatDragHandlers } = useDragDrop({
@@ -510,7 +531,13 @@ export default function Chat() {
 					layout="position"
 					className="flex-1 shrink-0 flex flex-col basis-0 max-w-lg relative z-10 h-full min-h-0"
 				>
-					<div className="flex-1 overflow-y-auto min-h-0 chat-messages-scroll" ref={messagesContainerRef}>
+					<div 
+					className={clsx(
+						'flex-1 overflow-y-auto min-h-0 chat-messages-scroll',
+						isDebugging && 'animate-debug-pulse'
+					)} 
+					ref={messagesContainerRef}
+				>
 						<div className="pt-5 px-4 pb-4 text-sm flex flex-col gap-5">
 							{appLoading ? (
 								<div className="flex items-center gap-2 text-text-tertiary">
@@ -519,11 +546,11 @@ export default function Chat() {
 								</div>
 							) : (
 								<>
-									{appTitle && (
-										<div className="text-lg font-semibold mb-2">
-											{appTitle}
-										</div>
-									)}
+									{(appTitle || chatId) && (
+								<div className="flex items-center justify-between mb-2">
+									<div className="text-lg font-semibold">{appTitle}</div>
+								</div>
+							)}
 									<UserMessage
 										message={query ?? displayQuery}
 									/>
@@ -543,11 +570,61 @@ export default function Chat() {
 							)}
 
 							{mainMessage && (
+							<div className="relative">
 								<AIMessage
 									message={mainMessage.content}
 									isThinking={mainMessage.ui?.isThinking}
 									toolEvents={mainMessage.ui?.toolEvents}
 								/>
+								{chatId && (
+									<div className="absolute right-1 top-1">
+										<DropdownMenu>
+											<DropdownMenuTrigger asChild>
+												<Button
+													variant="ghost"
+													size="icon"
+													className="hover:bg-bg-3/80 cursor-pointer"
+												>
+													<MoreHorizontal className="h-4 w-4" />
+													<span className="sr-only">Chat actions</span>
+												</Button>
+											</DropdownMenuTrigger>
+											<DropdownMenuContent align="end" className="w-56">
+												<DropdownMenuItem
+														onClick={(e) => {
+															e.preventDefault();
+															setIsResetDialogOpen(true);
+														}}
+												>
+													<RotateCcw className="h-4 w-4 mr-2" />
+													Reset conversation
+												</DropdownMenuItem>
+											</DropdownMenuContent>
+										</DropdownMenu>
+									</div>
+								)}
+							</div>
+						)}
+
+							{otherMessages
+								.filter(message => message.role === 'assistant' && message.ui?.isThinking)
+								.map((message) => (
+									<div key={message.conversationId} className="mb-4">
+										<AIMessage
+											message={message.content}
+											isThinking={true}
+											toolEvents={message.ui?.toolEvents}
+										/>
+									</div>
+								))}
+
+							{isThinking && !otherMessages.some(m => m.ui?.isThinking) && (
+								<div className="mb-4">
+									<AIMessage
+										message="Planning next phase..."
+										isThinking={true}
+									/>
+								</div>
 							)}
 
 							<PhaseTimeline
@@ -569,6 +646,11 @@ export default function Chat() {
 								chatId={chatId}
 								isDeploying={isDeploying}
 								handleDeployToCloudflare={handleDeployToCloudflare}
+								runtimeErrorCount={runtimeErrorCount}
+								staticIssueCount={staticIssueCount}
+								isDebugging={isDebugging}
+								isGenerating={isGenerating}
+								isThinking={isThinking}
 							/>
 
 							{/* Deployment and Generation Controls */}
@@ -609,24 +691,27 @@ export default function Chat() {
 								</motion.div>
 							)}
 
-							{otherMessages.map((message) => {
-								if (message.role === 'assistant') {
+							{otherMessages
+								.filter(message => !message.ui?.isThinking)
+								.map((message) => {
+									if (message.role === 'assistant') {
+										return (
+											<AIMessage
+												key={message.conversationId}
+												message={message.content}
+												isThinking={message.ui?.isThinking}
+												toolEvents={message.ui?.toolEvents}
+											/>
+										);
+									}
 									return (
-										<AIMessage
+										<UserMessage
 											key={message.conversationId}
 											message={message.content}
-											isThinking={message.ui?.isThinking}
-											toolEvents={message.ui?.toolEvents}
 										/>
 									);
-								}
-								return (
-									<UserMessage
-										key={message.conversationId}
-										message={message.content}
-									/>
-								);
-							})}
+								})}
+
 						</div>
 					</div>
 
@@ -692,11 +777,13 @@ export default function Chat() {
 								}}
 								disabled={isChatDisabled}
 								placeholder={
-									isChatDisabled
-										? 'Please wait for blueprint completion...'
-										: isRunning
-											? 'Chat with AI while generating...'
-											: 'Ask a follow up...'
+									isDebugging
+										? 'Deep debugging in progress... Please abort to continue'
+										: isChatDisabled
+											? 'Please wait for blueprint completion...'
+											: isRunning
+												? 'Chat with AI while generating...'
+												: 'Chat with AI...'
 								}
 								rows={1}
 								className="w-full bg-bg-2 border border-text-primary/10 rounded-xl px-3 pr-20 py-2 text-sm outline-none focus:border-white/20 drop-shadow-2xl text-text-primary placeholder:!text-text-primary/50 disabled:opacity-50 disabled:cursor-not-allowed resize-none overflow-y-auto no-scrollbar min-h-[36px] max-h-[120px]"
@@ -714,6 +801,24 @@ export default function Chat() {
 								}}
 							/>
 							<div className="absolute right-1.5 bottom-2.5 flex items-center gap-1">
+								{(isGenerating || isGeneratingBlueprint || isDebugging) && (
+									<button
+										type="button"
+										onClick={() => {
+											if (websocket) {
+												sendWebSocketMessage(websocket, 'stop_generation');
+											}
+										}}
+										className="p-1.5 rounded-md hover:bg-red-500/10 text-text-tertiary hover:text-red-500 transition-all duration-200 group relative"
+										aria-label="Stop generation"
+										title="Stop generation"
+									>
+										<X className="size-4" strokeWidth={2} />
+										<span className="absolute -top-8 right-0 px-2 py-1 bg-bg-1 border border-border-primary rounded text-xs text-text-secondary whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+											Stop
+										</span>
+									</button>
+								)}
 								<button
 									type="button"
 									onClick={() => imageInputRef.current?.click()}
@@ -798,6 +903,16 @@ export default function Chat() {
 												loading={loadingConfigs}
 											/>
 											<button
+												className="group relative flex items-center gap-1.5 p-1.5 group-hover:pl-2 group-hover:pr-2.5 rounded-full group-hover:rounded-md transition-all duration-300 ease-in-out hover:bg-bg-4 border border-transparent hover:border-border-primary hover:shadow-sm overflow-hidden"
+												onClick={() => setIsGitCloneModalOpen(true)}
+												title="Clone Repository"
+											>
+												<GitBranch className="size-3.5 text-brand-primary transition-colors duration-300 flex-shrink-0" />
+												<span className="max-w-0 group-hover:max-w-[70px] opacity-0 group-hover:opacity-100 overflow-hidden transition-all duration-300 ease-in-out whitespace-nowrap text-xs font-medium text-text-primary">
+													Git Clone
+												</span>
+											</button>
+											<button
 												className={`flex items-center gap-1.5 px-2 py-1 rounded-md transition-all duration-200 text-xs font-medium shadow-sm ${
 													isGitHubExportReady
 														? 'bg-gray-800 hover:bg-gray-900 text-white'
@@ -820,17 +935,17 @@ export default function Chat() {
 															: "GitHub export disabled - waiting for chat session"
 												}
 											>
-												<Github className="size-3" />
+												<Github className="size-3.5" />
 												GitHub
 											</button>
 											<button
-												className="p-1 hover:bg-bg-2 rounded transition-colors"
+												className="p-1.5 rounded-full transition-all duration-300 ease-in-out hover:bg-bg-4 border border-transparent hover:border-border-primary hover:shadow-sm"
 												onClick={() => {
 													previewRef.current?.requestFullscreen();
 												}}
 												title="Fullscreen"
 											>
-												<Expand className="size-4 text-text-primary/50" />
+												<Expand className="size-3.5 text-text-primary/60 hover:text-brand-primary transition-colors duration-300" />
 											</button>
 										</div>
 									</div>
@@ -853,14 +968,29 @@ export default function Chat() {
 							{view === 'blueprint' && (
 								<div className="flex-1 flex flex-col bg-bg-3 rounded-xl shadow-md shadow-bg-2 overflow-hidden border border-border-primary">
 									{/* Toolbar */}
-									<div className="flex items-center justify-center px-2 h-10 bg-bg-2 border-b">
-										<div className="flex items-center gap-2">
-											<span className="text-sm text-text-50/70 font-mono">
-												Blueprint.md
-											</span>
-											{previewUrl && (
-												<Copy text={previewUrl} />
-											)}
+									<div className="grid grid-cols-3 px-2 h-10 bg-bg-2 border-b">
+										<div className="flex items-center">
+											<ViewModeSwitch
+												view={view}
+												onChange={handleViewModeChange}
+												previewAvailable={!!previewUrl}
+												showTooltip={showTooltip}
+											/>
+										</div>
+
+										<div className="flex items-center justify-center">
+											<div className="flex items-center gap-2">
+												<span className="text-sm text-text-50/70 font-mono">
+													Blueprint.md
+												</span>
+												{previewUrl && (
+													<Copy text={previewUrl} />
+												)}
+											</div>
+										</div>
+
+										<div className="flex items-center justify-end">
+											{/* Right side - can add actions here if needed */}
 										</div>
 									</div>
 									<div className="flex-1 overflow-y-auto bg-bg-3">
@@ -1003,7 +1133,7 @@ export default function Chat() {
 													title={isPhase1Complete ? "Export to GitHub" : "Complete Phase 1 to enable GitHub export"}
 													aria-label={isPhase1Complete ? "Export to GitHub" : "GitHub export disabled - complete Phase 1 first"}
 												>
-													<Github className="size-3" />
+													<Github className="size-3.5" />
 													GitHub
 												</button> */}
 												<ModelConfigInfo
@@ -1012,13 +1142,13 @@ export default function Chat() {
 													loading={loadingConfigs}
 												/>
 												<button
-													className="p-1 hover:bg-bg-2 rounded transition-colors"
+													className="p-1.5 rounded-full transition-all duration-300 ease-in-out hover:bg-bg-4 border border-transparent hover:border-border-primary hover:shadow-sm"
 													onClick={() => {
 														editorRef.current?.requestFullscreen();
 													}}
 													title="Fullscreen"
 												>
-													<Expand className="size-4 text-text-primary/50" />
+													<Expand className="size-3.5 text-text-primary/60 hover:text-brand-primary transition-colors duration-300" />
 												</button>
 											</div>
 										</div>
@@ -1088,6 +1218,23 @@ export default function Chat() {
 				chatSessionId={chatId}
 			/>
 
+			<AlertDialog open={isResetDialogOpen} onOpenChange={setIsResetDialogOpen}>
+				<AlertDialogContent className="sm:max-w-[425px]">
+					<AlertDialogHeader>
+						<AlertDialogTitle>Reset conversation?</AlertDialogTitle>
+						<AlertDialogDescription>
+							This will clear the chat history for this app. Generated files and preview are not affected.
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel>Cancel</AlertDialogCancel>
+						<AlertDialogAction onClick={handleResetConversation} className="bg-bg-2 hover:bg-bg-2/80 text-text-primary">
+							Reset
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
+
 			{/* GitHub Export Modal */}
 			<GitHubExportModal
 				isOpen={githubExport.isModalOpen}
@@ -1097,7 +1244,22 @@ export default function Chat() {
 				exportProgress={githubExport.progress}
 				exportResult={githubExport.result}
 				onRetry={githubExport.retry}
+				existingGithubUrl={app?.githubRepositoryUrl || null}
+				agentId={urlChatId || undefined}
+				appTitle={app?.title}
 			/>
+
+			{/* Git Clone Modal */}
+			{urlChatId && app && (
+				<GitCloneModal
+					open={isGitCloneModalOpen}
+					onOpenChange={setIsGitCloneModalOpen}
+					appId={urlChatId}
+					appTitle={app.title || 'app'}
+					isPublic={app.visibility === 'public'}
+					isOwner={app.user?.id === user?.id}
+				/>
+			)}
 		</div>
 	);
 }

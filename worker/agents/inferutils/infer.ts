@@ -1,4 +1,4 @@
-import { infer, InferError, InferResponseString, InferResponseObject } from './core';
+import { infer, InferError, InferResponseString, InferResponseObject, AbortError } from './core';
 import { createAssistantMessage, createUserMessage, Message } from './common';
 import z from 'zod';
 // import { CodeEnhancementOutput, CodeEnhancementOutputType } from '../codegen/phasewiseGenerator';
@@ -123,6 +123,7 @@ export async function executeInference<T extends z.AnyZodObject>(   {
                 stream,
                 reasoning_effort: useCheaperModel ? undefined : reasoning_effort,
                 temperature,
+                abortSignal: context.abortSignal,
             }) : await infer({
                 env,
                 metadata: context,
@@ -134,6 +135,7 @@ export async function executeInference<T extends z.AnyZodObject>(   {
                 actionKey: agentActionName,
                 reasoning_effort: useCheaperModel ? undefined : reasoning_effort,
                 temperature,
+                abortSignal: context.abortSignal,
             });
             logger.info(`Successfully completed ${agentActionName} operation`);
             // console.log(result);
@@ -142,16 +144,23 @@ export async function executeInference<T extends z.AnyZodObject>(   {
             if (error instanceof RateLimitExceededError || error instanceof SecurityError) {
                 throw error;
             }
+            
+            // Check if cancellation - don't retry, propagate immediately
+            if (error instanceof InferError && error.message.includes('cancelled')) {
+                logger.info(`${agentActionName} operation cancelled by user, not retrying`);
+                throw error;
+            }
+            
             const isLastAttempt = attempt === retryLimit - 1;
             logger.error(
                 `Error during ${agentActionName} operation (attempt ${attempt + 1}/${retryLimit}):`,
                 error
             );
 
-            if (error instanceof InferError) {
-                // If its an infer error, we can append the partial response to the list of messages and ask a cheaper model to retry the generation
-                if (error.partialResponse && error.partialResponse.length > 1000) {
-                    messages.push(createAssistantMessage(error.partialResponse));
+            if (error instanceof InferError && !(error instanceof AbortError)) {
+                // If its an infer error and not an abort error, we can append the partial response to the list of messages and ask a cheaper model to retry the generation
+                if (error.response && error.response.length > 1000) {
+                    messages.push(createAssistantMessage(error.response));
                     messages.push(createUserMessage(responseRegenerationPrompts));
                     useCheaperModel = true;
                 }
