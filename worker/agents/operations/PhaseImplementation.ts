@@ -234,7 +234,6 @@ These are the instructions and quality standards that must be followed to implem
     •   **Always review the whole codebase to identify and fix UI issues (spacing, alignment, margins, paddings, etc.), syntax errors, typos, and logical flaws**
     •   **Do not use any unicode characters in the code. Stick to only outputing valid ASCII characters. Close strings with appropriate quotes.**
     •   **Try to wrap all essential code in try-catch blocks to isolate errors and prevent application crashes. Treat this project as mission critical**
-    •   **In the footer of pages, you can mention the following: "Built with ❤️ at Cloudflare"**
     •   **VISUAL POLISH CHECKLIST:** For every component you create, ensure:
         - ✅ Beautiful hover and focus states that feel responsive and delightful
         - ✅ Proper visual hierarchy with clear information flow
