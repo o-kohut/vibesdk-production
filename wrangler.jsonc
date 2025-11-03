@@ -142,7 +142,7 @@
 	"vars": {
         "TEMPLATES_REPOSITORY": "https://github.com/andrii-bodnar/vibesdk-templates",
         "ALLOWED_EMAIL": "nm@crowdin.ua",
-        "EMAIL_WHITELIST": "*@crowdin.com,*@crowdin.ua,sebastian.dziecielski@gmail.com",
+        "EMAIL_WHITELIST": "*@crowdin.com,*@crowdin.ua,sebastian.dziecielski@gmail.com,jourikciesielski@elanlanguages.com",
         "DISPATCH_NAMESPACE": "vibesdk-default-namespace",
         "ENABLE_READ_REPLICAS": "true",
         "CLOUDFLARE_AI_GATEWAY": "vibesdk-gateway",
