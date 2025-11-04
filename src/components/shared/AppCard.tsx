@@ -233,7 +233,7 @@ const StatItem = ({
 				!highlighted && 'group-hover:text-bg-2',
 			)}
 		/>
-		<span className="font-medium text-xs text-text-tertiary group-hover:text-bg-2">
+		<span className="font-medium text-xs text-text-tertiary">
 			{value || 0}
 		</span>
 	</div>
@@ -281,7 +281,7 @@ const AppMetadata = ({
 						</Avatar>
 					</div>
 				)}
-				<div className="flex flex-col line-clamp-1 gap-1 w-full text-text-primary group-hover:text-bg-2 ">
+				<div className="flex flex-col line-clamp-1 gap-1 w-full text-foreground">
 					<span className="truncate text-ellipsis max-w-60 font-medium">
 						{app.title}
 					</span>
@@ -299,7 +299,7 @@ const AppMetadata = ({
 		const deploymentStatus = getDeploymentStatusInfo(app);
 		return (
 			<div className='flex flex-col'>
-				<span className="truncate text-ellipsis max-w-60 font-medium group-hover:text-bg-2">
+				<span className="truncate text-ellipsis max-w-60 font-medium text-foreground">
 					{app.title}
 				</span>
 				<div className="flex items-center gap-2.5 text-sm">
@@ -333,10 +333,10 @@ const AppMetadata = ({
 											'text-green-400' &&
 											'text-green-600',
 										deploymentStatus.color ===
-											'text-gray-500' && 'text-gray-600 group-hover:text-bg-2',
+											'text-gray-500' && 'text-gray-600 group-hover:text-foreground',
 										deploymentStatus.color ===
 											'text-gray-500' &&
-											'text-text-tertiary',
+											'text-muted-foreground',
 									)}
 								>
 									{deploymentStatus.text}
@@ -345,7 +345,7 @@ const AppMetadata = ({
 							<span className="text-text-tertiary/60">•</span>
 						</>
 					)}
-					<span className="text-xs text-text-tertiary/80 group-hover:text-bg-1 font-medium">
+					<span className="text-xs text-muted-foreground font-medium">
 						Updated{' '}
 						{isUserApp(app)
 							? app.updatedAtFormatted
@@ -424,8 +424,7 @@ export const AppCard = React.memo<AppCardProps>(
 				>
 					<Card
 						className={cn(
-							'h-full transition-all duration-300 ease-out cursor-pointer group relative overflow-hidden rounded-md p-2 bg-bg-1 hover:!bg-text hover:dark:!bg-text-primary',
-							'border border-border-primary hover:border-border-primary/60',
+							'h-full transition-all duration-300 ease-out cursor-pointer group relative overflow-hidden rounded-md p-2 bg-bg-4 hover:bg-bg-2 border hover:text-foreground',
 						)}
 					>
 					{/* Enhanced Preview Section with High-Quality Rendering */}

@@ -92,7 +92,7 @@ export function ConfigCard({
   const reasoningEffort = userConfig?.reasoning_effort ?? defaultConfig?.reasoning_effort;
 
   return (
-    <Card className={`h-full min-h-[280px] min-w-[280px] flex flex-col overflow-hidden transition-all dark:!bg-bg-3 !bg-bg-3 hover:shadow-md !border-bg-1/40`}>
+    <Card className={`h-full min-h-[280px] min-w-[280px] flex flex-col overflow-hidden transition-all bg-bg-4 hover:shadow-md border`}>
       <CardHeader className="pb- flex-shrink-0">
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-start gap-2 min-w-0 flex-1 overflow-hidden">

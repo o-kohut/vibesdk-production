@@ -133,9 +133,9 @@ function AnimatedStatusIndicator({ status, size = 5 }: AnimatedStatusIndicatorPr
 						animate="animate"
 						exit="exit"
 						transition={commonTransitions.smoothInOut}
-						className={clsx(sizeClass, 'bg-bg-4 dark:bg-bg-2 flex items-center justify-center')}
+						className={clsx(sizeClass, 'bg-bg-2 dark:bg-bg-4 flex items-center justify-center')}
 					>
-						<Loader className="size-3 text-accent animate-spin" />
+						<Loader className="size-3 text-brand animate-spin" />
 					</motion.div>
 				)}
 				{status === 'completed' && (
@@ -148,7 +148,7 @@ function AnimatedStatusIndicator({ status, size = 5 }: AnimatedStatusIndicatorPr
 						transition={commonTransitions.smoothInOut}
 						className={clsx(sizeClass, 'flex items-center justify-center')}
 					>
-						<div className="size-2 rounded-full bg-accent" />
+						<div className="size-2 rounded-full bg-brand" />
 					</motion.div>
 				)}
 				{status === 'error' && (
@@ -662,13 +662,13 @@ export function PhaseTimeline({
 				ref={componentRef}
 			>
 				{/* Main Timeline Card */}
-				<div ref={timelineCardRef} className="px-2 pr-3.5 py-3 flex-1 rounded-xl border border-black/12 bg-bg-4 dark:bg-bg-2">
+				<div ref={timelineCardRef} className="px-2 pr-3.5 py-3 flex-1 rounded-xl border bg-bg-2 dark:bg-bg-4">
 				{/* Calculate if Done/Debugging will show for line extension */}
 				{(() => {
 					const allStagesCompleted = projectStages.every(stage => stage.status === 'completed');
 					const isAnythingHappening = isDebugging || isGenerating || isThinking || isPreviewDeploying;
 					const willShowStatusStage = (allStagesCompleted && !isAnythingHappening) || isDebugging;
-					
+
 					return (
 						<>
 				{/* Project Stages */}
@@ -934,14 +934,14 @@ export function PhaseTimeline({
 						)}
 					</div>
 				))}
-				
+
 				<AnimatePresence mode="wait">
 					{/* Done stage - shows when everything is complete and nothing is happening */}
 					{(() => {
 						const allStagesCompleted = projectStages.every(stage => stage.status === 'completed');
 						const isAnythingHappening = isDebugging || isGenerating || isThinking || isPreviewDeploying;
 						const showDone = allStagesCompleted && !isAnythingHappening;
-						
+
 						if (showDone) {
 							return (
 								<motion.div
@@ -954,16 +954,16 @@ export function PhaseTimeline({
 								>
 									{/* Connecting line from previous stage */}
 									<div className="absolute left-[9.25px] w-px h-[0.875rem] -top-[0.875rem] bg-accent" />
-									
+
 									<AnimatedStatusIndicator status="completed" />
-									
+
 									<div className="flex flex-col gap-2 flex-1">
 										<span className="font-medium text-text-secondary">Done</span>
 									</div>
 								</motion.div>
 							);
 						}
-						
+
 						// Show debugging status when debugging
 						if (isDebugging) {
 							return (
@@ -977,16 +977,16 @@ export function PhaseTimeline({
 								>
 									{/* Connecting line from previous stage */}
 									<div className="absolute left-[9.25px] w-px h-[0.875rem] -top-[0.875rem] bg-accent" />
-									
+
 									<AnimatedStatusIndicator status="active" />
-									
+
 									<div className="flex flex-col gap-2 flex-1">
 										<span className="font-medium text-text-secondary">Debugging in progress...</span>
 									</div>
 								</motion.div>
 							);
 						}
-						
+
 						return null;
 					})()}
 			</AnimatePresence>

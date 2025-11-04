@@ -156,7 +156,7 @@ export function DeploymentControls({
 					title: "Deploy to Cloudflare",
 					subtitle: "Deploy will be enabled after Phase 1 is implemented",
 					buttonDisabled: true,
-					buttonVariant: "secondary" as const,
+					buttonVariant: "outline" as const,
 					buttonClass: "bg-bg-3 dark:bg-bg-3 text-text-tertiary dark:text-text-tertiary border-muted dark:border-muted cursor-not-allowed"
 				};
 			
@@ -184,7 +184,7 @@ export function DeploymentControls({
 					title: "Deploying to Cloudflare",
 					subtitle: "Please wait while your application is being deployed...",
 					buttonDisabled: true,
-					buttonVariant: "primary" as const,
+					buttonVariant: "default" as const,
 					buttonClass: "bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-white border-blue-500 dark:border-blue-600 scale-105 shadow-lg dark:shadow-blue-900/50"
 				};
 			
@@ -198,7 +198,7 @@ export function DeploymentControls({
 					title: "Redeploying to Cloudflare",
 					subtitle: "Please wait while your application is being redeployed...",
 					buttonDisabled: true,
-					buttonVariant: "primary" as const,
+					buttonVariant: "default" as const,
 					buttonClass: "bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-white border-blue-500 dark:border-blue-600 scale-105 shadow-lg dark:shadow-blue-900/50"
 				};
 			
@@ -212,7 +212,7 @@ export function DeploymentControls({
 					title: "❌ Deployment Failed",
 					subtitle: "Error in deployment, please try again",
 					buttonDisabled: !isPhase1Complete,
-					buttonVariant: "primary" as const,
+					buttonVariant: "default" as const,
 					buttonClass: isPhase1Complete 
 						? "bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-700 text-white border-emerald-600 dark:border-emerald-600 hover:scale-105"
 						: "bg-bg-3 dark:bg-bg-3 text-text-tertiary dark:text-text-tertiary border-muted dark:border-muted cursor-not-allowed"

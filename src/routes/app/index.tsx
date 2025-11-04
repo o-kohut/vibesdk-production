@@ -124,7 +124,7 @@ export default function AppView() {
 			console.error('Error fetching app:', err);
 			if (err instanceof ApiError) {
 				if (err.status === 404) {
-					setError('App not found');
+					setError("It may have been deleted or made private.");
 				} else {
 					setError(`Failed to load app: ${err.message}`);
 				}
@@ -507,18 +507,18 @@ export default function AppView() {
 	if (error || !app) {
 		return (
 			<div className="min-h-screen bg-bg-3 flex items-center justify-center">
-				<Card className="max-w-md">
-					<CardContent className="pt-6">
+				<Card className="max-w-xl min-w-md bg-bg-4">
+					<CardContent className="pt-6 ">
 						<div className="text-center">
-							<h2 className="text-xl font-semibold mb-2">
-								App not found
+							<h2 className="text-xl font-semibold mb-2 font-heading">
+								App Not Found
 							</h2>
 							<p className="text-text-tertiary mb-4">
 								{error ||
 									"The app you're looking for doesn't exist."}
 							</p>
-							<Button onClick={() => navigate('/apps')}>
-								<ChevronLeft className="mr-2 h-4 w-4" />
+							<Button variant="default" onClick={() => navigate('/apps')}>
+								<ChevronLeft className="h-4 w-4" />
 								Back to Apps
 							</Button>
 						</div>
@@ -533,52 +533,90 @@ export default function AppView() {
 	const createdDate = app.createdAt ? new Date(app.createdAt) : new Date();
 
 	return (
-		<div className="min-h-screen bg-bg-3 flex flex-col">
+		<div className="bg-background flex flex-col flex-1">
 			<div className="container mx-auto px-4 pb-6 space-y-6 flex flex-col flex-1">
-				{/* Back button */}
-				<button
-					onClick={() => history.back()}
-					className="gap-2 flex items-center text-text-primary/80"
-				>
-					<ChevronLeft className="h-4 w-4" />
-					Back
-				</button>
-
-				{/* App Info Section */}
-				<div className="flex flex-col items-start justify-between gap-4 text-bg-4 w-fit rounded-lg p-5">
+				<div className="flex items-center gap-2 my-2">
+					<Button
+						variant="outline"
+						size="sm"
+						onClick={() => history.back()}
+					>
+						<ChevronLeft className="h-4 w-4" />
+						Back
+					</Button>
+				</div>
+				<div className="flex items-start gap-4">
 					<div className="flex-1">
-						<div className="flex rounded w-fit pb-3 pt-2 flex-col mb-6">
-							<div className="flex items-center gap-3 mb-2">
-								<h1 className="text-4xl font-semibold tracking-tight text-text-primary">
+						<div className="flex rounded w-fit pb-3 pt-2 flex-col">
+							<div className="flex gap-3 mb-4">
+								<h1 className="text-3xl font-bold font-heading text-foreground">
 									{app.title}
 								</h1>
 
-								<div className="flex items-center gap-2 border rounded-xl">
-									<Badge variant={'default'}>
-										<Globe />
+								<div className="flex items-center gap-2 border rounded-[25px] self-start mt-2 bg-accent">
+									<Badge variant={'default'} className="rounded-[24px] text-sm">
+										{app.visibility === 'private' ? <Lock className="h-2 w-2 text-muted-foreground" /> : <Globe className="h-2 w-2 text-muted-foreground" />}
 										{capitalizeFirstLetter(app.visibility)}
 									</Badge>
 									{isOwner && (
 										<Button
 											variant="ghost"
-											size="sm"
 											onClick={handleToggleVisibility}
 											disabled={isUpdatingVisibility}
-											className="h-6 w-6 p-0 hover:bg-bg-3/50 -ml-1.5 !mr-1.5"
+											className="h-6 w-6 p-0 -ml-1.5 !mr-1.5"
 											title={`Make ${app.visibility === 'private' ? 'public' : 'private'}`}
 										>
 											{isUpdatingVisibility ? (
-												<Loader2 className="h-3 w-3 animate-spin text-text-primary" />
+												<Loader2 className="animate-spin text-muted-foreground" />
 											) : app.visibility === 'private' ? (
-												<Unlock className="h-3 w-3 text-text-primary" />
+												<Unlock className="text-muted-foreground" />
 											) : (
-												<Lock className="h-3 w-3 text-text-primary" />
+												<Lock className="text-muted-foreground" />
 											)}
 										</Button>
 									)}
 								</div>
 							</div>
-							<div className="flex flex-wrap gap-2">
+							<div className="flex flex-wrap gap-2 flex-1">
+							{isOwner ? (
+									<>
+										<Button
+											variant="default"
+											size="sm"
+											onClick={() =>
+												navigate(`/chat/${app.id}`)
+											}
+										>
+											<Code2 className="h-4 w-4" />
+											Continue Editing
+										</Button>
+										<Button
+											variant="destructive"
+											size="sm"
+											onClick={() =>
+												setIsDeleteDialogOpen(true)
+											}
+										>
+											<Trash2 className="h-4 w-4" />
+											Delete App
+										</Button>
+									</>
+								)
+                                : (
+									<>
+										{/*
+										<Button
+											size="sm"
+											variant="outline"
+											onClick={handleFork}
+										>
+											<Shuffle className="h-4 w-4" />
+											Remix
+										</Button>
+										*/}
+									</>
+								)
+                                }
 								<Button
 									variant="outline"
 									size="sm"
@@ -647,53 +685,11 @@ export default function AppView() {
 										)}
 									</Button>
 								)}
-
-								{isOwner ? (
-									<>
-										<Button
-											size="sm"
-											onClick={() =>
-												navigate(`/chat/${app.id}`)
-											}
-											className="gap-2 bg-text-primary text-bg-4 border-bg-4 border"
-										>
-											<Code2 className="h-4 w-4" />
-											Continue Editing
-										</Button>
-										<Button
-											variant="outline"
-											size="sm"
-											onClick={() =>
-												setIsDeleteDialogOpen(true)
-											}
-											className="gap-2 text-text-on-brand !border-0 bg-destructive hover:opacity-90 transition-colors"
-										>
-											<Trash2 className="h-4 w-4" />
-											Delete App
-										</Button>
-									</>
-								)
-                                : (
-									<>
-										{/*
-										<Button
-											size="sm"
-											variant="secondary"
-											onClick={handleFork}
-											className="gap-2 bg-text-primary text-bg-1"
-										>
-											<Shuffle className="h-4 w-4" />
-											Remix
-										</Button>
-										*/}
-									</>
-								)
-                                }
 							</div>
 						</div>
 
 						{app.description && (
-							<p className="text-text-primary my-3 max-w-4xl">
+							<p className="text-muted-foreground mb-4 max-w-4xl">
 								{app.description}
 							</p>
 						)}
@@ -737,7 +733,7 @@ export default function AppView() {
 						<TabsList className="inline-flex h-auto w-fit items-center gap-0.5 bg-bg-2 dark:bg-bg-1 rounded-md p-0.5 border border-border-primary/30">
 						<TabsTrigger
 							value="preview"
-							className="px-3 py-1.5 rounded text-xs font-medium"
+							className="px-3 py-1.5 rounded text-sm font-medium"
 						>
 							<Eye className={cn(
 								"h-3.5 w-3.5 mr-1.5",
@@ -747,7 +743,7 @@ export default function AppView() {
 						</TabsTrigger>
 						<TabsTrigger
 							value="code"
-							className="px-3 py-1.5 rounded text-xs font-medium data-[state=active]:bg-bg-4 dark:data-[state=active]:bg-bg-3 data-[state=active]:text-text-primary data-[state=active]:shadow-sm"
+							className="px-3 py-1.5 rounded text-sm font-medium data-[state=active]:bg-bg-4 dark:data-[state=active]:bg-bg-3 data-[state=active]:text-text-primary data-[state=active]:shadow-sm"
 						>
 							<Code2 className={cn(
 								"h-3.5 w-3.5 mr-1.5",
@@ -757,7 +753,7 @@ export default function AppView() {
 						</TabsTrigger>
 						<TabsTrigger
 							value="prompt"
-							className="px-3 py-1.5 rounded text-xs font-medium data-[state=active]:bg-bg-4 dark:data-[state=active]:bg-bg-3 data-[state=active]:text-text-primary data-[state=active]:shadow-sm"
+							className="px-3 py-1.5 rounded text-sm font-medium data-[state=active]:bg-bg-4 dark:data-[state=active]:bg-bg-3 data-[state=active]:text-text-primary data-[state=active]:shadow-sm"
 						>
 							<MessageSquare className={cn(
 								"h-3.5 w-3.5 mr-1.5",
@@ -840,10 +836,10 @@ export default function AppView() {
 											{/* Frosted glass overlay */}
 											<div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center z-10">
 												<div className="text-center p-8">
-													<h3 className="text-xl font-semibold mb-2 text-gray-700">
+													<h3 className="text-xl font-semibold font-heading mb-2 text-gray-700">
 														Run App
 													</h3>
-													<p className="text-gray-500 mb-6 max-w-md">
+													<p className="text-muted-foreground mb-6 max-w-md">
 														Run the app to see a
 														live preview.
 													</p>
@@ -930,7 +926,7 @@ export default function AppView() {
 							</CardHeader>
 							<CardContent className="p-0 flex-1 flex flex-col overflow-hidden">
 								{files.length > 0 ? (
-									<div className="h-[450px] relative bg-bg-3 overflow-hidden">
+									<div className="h-[450px] relative bg-bg-3 overflow-hidden border-t">
 										<div className="h-full flex">
 											<div className="w-full max-w-[250px] bg-bg-3 border-r border-text/10 h-full overflow-y-auto">
 												<div className="p-2 px-3 text-sm flex items-center gap-1 text-text-primary/50 font-medium border-b bg-bg-3">
@@ -950,7 +946,7 @@ export default function AppView() {
 																'flex items-center w-full gap-2 py-2 px-3 text-left text-sm transition-colors',
 																activeFile?.filePath ===
 																	file.filePath
-																	? 'bg-blue-100 text-blue-900 border-r-2 border-blue-500'
+																	? 'bg-brand/20 text-brand border-r-2 border-brand'
 																	: 'hover:bg-bg-3 text-text-tertiary hover:text-text-primary',
 															)}
 														>
@@ -1047,12 +1043,12 @@ export default function AppView() {
 									<div className="bg-bg-2 rounded-lg p-6 border border-border-primary">
 										<div className="flex items-start gap-3">
 											<div className="flex-shrink-0 mt-1">
-												<div className="rounded-full bg-accent/10 p-2">
-													<MessageSquare className="h-4 w-4 text-accent" />
+												<div className="rounded-full bg-brand/20 p-2">
+													<MessageSquare className="h-4 w-4 text-brand" />
 												</div>
 											</div>
 											<div className="flex-1">
-												<p className="text-sm text-text-secondary mb-2 font-medium">Prompt</p>
+												<p className="text-sm text-muted-foreground mb-2 font-medium">Prompt</p>
 												<p className="text-text-primary whitespace-pre-wrap">
 													{app?.agentSummary?.query || app?.originalPrompt}
 												</p>

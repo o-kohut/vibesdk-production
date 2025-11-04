@@ -161,7 +161,7 @@ export function AuthButton({ className }: AuthButtonProps) {
 						<DropdownMenuGroup>
 							<DropdownMenuItem
 								onClick={() => navigate('/settings')}
-								className="cursor-pointer"
+								className="cursor-pointer hover:bg-foreground/5"
 							>
 								<Settings className="mr-1 h-4 w-4" />
 								Settings
@@ -170,7 +170,7 @@ export function AuthButton({ className }: AuthButtonProps) {
 
 						<DropdownMenuItem
 							onClick={() => logout()}
-							className="cursor-pointer text-destructive focus:text-text-primary"
+							className="cursor-pointer hover:bg-foreground/5"
 						>
 							<LogOut className="mr-1 h-4 w-4" />
 							Sign Out

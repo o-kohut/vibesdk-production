@@ -162,7 +162,7 @@ export default function Home() {
 									</div>
 								)}
 								<textarea
-									className="w-full resize-none ring-0 z-20 outline-0 placeholder:text-text-primary/60 text-text-primary"
+									className="w-full resize-none ring-0 z-20 outline-0 placeholder:text-muted-foreground/50 text-foreground"
 									name="query"
 									value={query}
 									placeholder={`Build a ${currentPlaceholderText}`}
@@ -207,7 +207,7 @@ export default function Home() {
 								/>
 								<Button
 									variant="default"
-									size="sm"
+									size="icon"
 									type="submit"
 									disabled={!query.trim()}
 								>

@@ -52,7 +52,7 @@ export function ImageUploadButton({
 				onClick={handleClick}
 				disabled={disabled}
 				variant="ghost"
-				size="sm"
+				size="icon"
 				aria-label="Upload image"
 				title="Upload image (PNG, JPEG, WEBP, HEIC, HEIF)"
 			>

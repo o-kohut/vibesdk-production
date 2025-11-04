@@ -11,6 +11,7 @@ import {
 	Bookmark,
 	// LayoutGrid,
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import './sidebar-overrides.css';
 import { useRecentApps, useFavoriteApps, useApps } from '@/hooks/use-apps';
 import {
@@ -86,12 +87,14 @@ function AppMenuItem({
 		return 'Recently';
 	};
 
+	const [isDropdownOpen, setIsDropdownOpen] = React.useState(false);
+
 	return (
 		<SidebarMenuItem className="group/app-item">
 			<SidebarMenuButton
 				asChild
 				tooltip={app.title}
-				className="cursor-pointer transition-background hover:bg-accent/10"
+				className="cursor-pointer transition-background h-auto"
 			>
 				<a
 					href={`/app/${app.id}`}
@@ -108,7 +111,7 @@ function AppMenuItem({
 							)}
 
 							<div className="relative flex-1 min-w-0 overflow-hidden">
-								<span className="font-medium flex justify-start  items-center  gap-2 text-text-primary/80 whitespace-nowrap">
+								<span className="font-medium flex justify-start items-center gap-2 text-text-primary/80 whitespace-nowrap">
 									<span className="text-ellipsis w-fit overflow-hidden">
 										{app.title}{' '}
 									</span>
@@ -116,8 +119,6 @@ function AppMenuItem({
 										{getVisibilityIcon(app.visibility)}
 									</div>
 								</span>
-
-								<div className="absolute inset-y-0 right-0 w-4 bg-gradient-to-l from-bg-2 to-transparent pointer-events-none" />
 							</div>
 						</div>
 						<p className="text-xs text-text-tertiary truncate">
@@ -130,14 +131,17 @@ function AppMenuItem({
 			{!isCollapsed && showActions && (
 				<SidebarMenuAction
 					asChild
-					className="opacity-0 -mr-2 group-hover/app-item:opacity-100 transition-opacity"
+					className={` transition-opacity ${
+						isDropdownOpen ? 'opacity-100' : 'opacity-0 group-hover/app-item:opacity-100'
+					}`}
 				>
 					<AppActionsDropdown
 						appId={app.id}
 						appTitle={app.title}
-						size="sm"
+						size="icon"
 						className="h-6 w-6"
 						showOnHover={false}
+						onOpenChange={setIsDropdownOpen}
 					/>
 				</SidebarMenuAction>
 			)}
@@ -205,24 +209,21 @@ export function AppSidebar() {
 					'bg-bg-1 transition-all duration-300 ease-in-out',
 				)}
 			>
-				<SidebarContent className="mt-2">
+				<SidebarContent className="pt-2">
 					{/* Build Button */}
 					<SidebarGroup>
 						<SidebarGroupContent>
 
 							{location.pathname !== '/' && (
 								<div
-									className={cn(
-										isCollapsed ? ' pr-2' : 'px-1',
-									)}
+									className={cn('mb-4', isCollapsed ? 'px-0' : 'px-2')}
 								>
 									<TooltipProvider delayDuration={0}>
 										<Tooltip>
 											<TooltipTrigger asChild>
-												<button
-													className={cn(
-														"group flex w-full bg-primary text-primary-foreground hover:bg-primary/90 items-center gap-2 font-medium hover:cursor-pointer p-2 rounded-md cursor-hand justify-center",
-													)}
+												<Button
+													variant="default"
+													className={cn('transition-all h-8',isCollapsed ? 'has-[>svg]:px-2' : 'has-[>svg]:px-3 w-full')}
 													onClick={() => {
 														// Collapse sidebar when starting a new build
 														if (!isCollapsed) {
@@ -231,13 +232,13 @@ export function AppSidebar() {
 														navigate('/');
 													}}
 												>
-													<Plus className="h-4 w-4 " />
+													<Plus className="h-4 w-4" />
 													{!isCollapsed && (
 														<span>
-															New build
+															New Build
 														</span>
 													)}
-												</button>
+												</Button>
 											</TooltipTrigger>
 										</Tooltip>
 									</TooltipProvider>
@@ -248,14 +249,12 @@ export function AppSidebar() {
 
 					{!isCollapsed && (
 						<ScrollArea className="flex-1 px-1 relative">
-							{/* Gradient fade overlay for app names at sidebar edge */}
-							<div className="absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-bg-2 to-transparent pointer-events-none z-10"></div>
 							{/* Navigation */}
 							<SidebarGroup>
 								{expandedGroups.includes('apps') && (
 									<SidebarGroupContent>
 										{/* Search */}
-										<div className="relative bg-bg-3 mb-4 mt-2">
+										<div className="relative bg-bg-3 mb-4">
 											<Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-text-tertiary" />
 											<Input
 												placeholder="Search apps..."
@@ -398,13 +397,13 @@ export function AppSidebar() {
 									<SidebarGroup className='mt-4'>
 										<SidebarGroupLabel
 											className={cn(
-												'flex items-center gap-2 text-md text-text-primary',
+												'flex items-center gap-2 text-sm text-foreground tracking-wide font-heading border-b rounded-none mb-2',
 												isCollapsed &&
 													'justify-center px-0',
 											)}
 										>
 											{!isCollapsed && 'Bookmarked'}
-											<Bookmark className="h-5 w-5 fill-yellow-500 text-yellow-500" />
+											<Bookmark className="h-4 w-4 fill-yellow-500 text-yellow-500" />
 
 										</SidebarGroupLabel>
 										<SidebarGroupContent>

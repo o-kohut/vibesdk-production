@@ -18,7 +18,7 @@ import type {
 	ActiveSessionsData,
 	SecretTemplate,
 } from '@/api-types';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
@@ -513,7 +513,7 @@ export default function SettingsPage() {
 	}, [user]);
 
 	return (
-		<div className="min-h-screen bg-bg-3 relative">
+		<div className="bg-background relative">
 			<main className="container mx-auto px-4 py-8 max-w-4xl">
 				<div className="space-y-8">
 					<div>
@@ -1703,7 +1703,7 @@ export default function SettingsPage() {
 											</p>
 										</div>
 									</div>
-									<Badge variant="secondary">Connected</Badge>
+									<Badge variant="secondary" className="rounded-xl bg-green-50 dark:bg-green-500/20 border-green-600/10 dark:border-green-100/10 text-green-700/80 dark:text-green-300">Connected</Badge>
 								</div>
 							</div>
 
@@ -1767,7 +1767,7 @@ export default function SettingsPage() {
 					</Card>
 
 					<div className="space-y-4 p-3">
-						<h4 className="font-medium text-destructive">
+						<h4 className="text-xl font-semibold text-destructive font-heading">
 							Danger Zone
 						</h4>
 
@@ -1806,7 +1806,7 @@ export default function SettingsPage() {
 										</AlertDialogCancel>
 										<AlertDialogAction
 											onClick={handleDeleteAccount}
-											className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+											className={buttonVariants({ variant: "destructive" })}
 										>
 											Delete Account
 										</AlertDialogAction>

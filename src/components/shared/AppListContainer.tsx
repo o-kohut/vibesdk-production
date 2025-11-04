@@ -45,7 +45,7 @@ const getEmptyStateDefaults = (sortBy: AppSortOption, totalCount: number) => {
   if (totalCount === 0) {
     // No apps at all
     return {
-      title: 'No apps yet',
+      title: 'No Apps Yet',
       description: 'Start building your first app with AI assistance.'
     };
   }
@@ -54,23 +54,23 @@ const getEmptyStateDefaults = (sortBy: AppSortOption, totalCount: number) => {
   switch (sortBy) {
     case 'popular':
       return {
-        title: 'No popular apps yet',
+        title: 'No Popular Apps Yet',
         description: 'Apps will appear here once they start getting views, stars, or forks.'
       };
     case 'starred':
       return {
-        title: 'No bookmarked apps yet',
+        title: 'No Bookmarked Apps Yet',
         description: 'Apps you bookmark will appear here. Click the bookmark icon on any app to add it.'
       };
     case 'trending':
       return {
-        title: 'No trending apps yet',
+        title: 'No Trending Apps Yet',
         description: 'Apps will appear here based on recent activity and engagement.'
       };
     case 'recent':
     default:
       return {
-        title: 'No apps match your filters',
+        title: 'No Apps Match Your Filters',
         description: 'Try adjusting your search or filters to find what you\'re looking for.'
       };
   }
@@ -135,8 +135,10 @@ export const AppListContainer: React.FC<AppListContainerProps> = ({
     
     return (
       <div className="text-center py-20">
-        <Code2 className="h-16 w-16 mx-auto mb-4 text-text-tertiary" />
-        <h3 className="text-xl font-semibold mb-2 text-text-secondary">
+        <div className="inline-flex items-center justify-center mb-4 bg-brand/20 rounded-full p-4 self-center">
+          <Code2 className="h-16 w-16 text-brand" />
+        </div>
+        <h3 className="text-xl font-semibold mb-2 font-heading text-foreground">
           {emptyStateContent.title}
         </h3>
         <p className="text-text-tertiary mb-6">

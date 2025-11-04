@@ -40,7 +40,7 @@ export const VisibilityFilter: React.FC<VisibilityFilterProps> = ({
 }) => {
   return (
     <div className={cn(
-      "inline-flex items-center rounded-lg bg-bg-4 p-0.5",
+      "inline-flex items-center rounded-lg bg-bg-3 p-0.5",
       className
     )}>
       {visibilityOptions.map((option) => {
@@ -52,11 +52,11 @@ export const VisibilityFilter: React.FC<VisibilityFilterProps> = ({
             key={option.value}
             onClick={() => onChange(option.value)}
             className={cn(
-              "relative inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all duration-200",
+              "relative inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-sm font-medium transition-all duration-200",
               "outline-none focus-visible:ring-1 focus-visible:ring-accent/30",
               isActive
-                ? "text-text-primary"
-                : "text-text-tertiary hover:text-text-secondary",
+                ? "text-foreground"
+                : "text-muted-foreground hover:text-foreground",
               !isActive && "hover:bg-bg-3/30"
             )}
             whileHover={{ scale: isActive ? 1 : 1.01 }}
@@ -65,7 +65,7 @@ export const VisibilityFilter: React.FC<VisibilityFilterProps> = ({
             {isActive && (
               <motion.div
                 className={cn(
-                  "absolute inset-0 rounded-md bg-bg-1 shadow-sm"
+                  "absolute inset-0 rounded-md bg-bg-1 no-shadow"
                 )}
                 layoutId="activeBackground"
                 transition={{
@@ -75,10 +75,10 @@ export const VisibilityFilter: React.FC<VisibilityFilterProps> = ({
                 }}
               />
             )}
-            <span className="relative flex items-center gap-1.5">
+            <span className="relative flex items-center gap-2">
               <Icon className={cn(
-                "h-3 w-3 transition-colors duration-200",
-                isActive && "text-accent"
+                "h-4 w-4 transition-colors duration-200",
+                isActive && "text-foreground"
               )} />
               <span>{option.label}</span>
             </span>

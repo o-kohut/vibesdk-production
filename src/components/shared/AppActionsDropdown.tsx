@@ -20,6 +20,7 @@ interface AppActionsDropdownProps {
   variant?: 'default' | 'ghost';
   size?: 'default' | 'sm' | 'icon';
   showOnHover?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
 export function AppActionsDropdown({
@@ -29,7 +30,8 @@ export function AppActionsDropdown({
   className = '',
   variant = 'ghost',
   size = 'icon',
-  showOnHover = false
+  showOnHover = false,
+  onOpenChange
 }: AppActionsDropdownProps) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -60,7 +62,7 @@ export function AppActionsDropdown({
 
   return (
     <>
-      <DropdownMenu>
+      <DropdownMenu onOpenChange={onOpenChange}>
         <DropdownMenuTrigger asChild>
           <Button
             variant={variant}
@@ -85,7 +87,7 @@ export function AppActionsDropdown({
             className="text-destructive focus:text-destructive focus:bg-destructive/10"
           >
             <Trash2 className="h-4 w-4 mr-2" />
-            Delete app
+            Delete App
           </DropdownMenuItem>
           {/* Future: Add Share option here */}
         </DropdownMenuContent>

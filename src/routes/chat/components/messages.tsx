@@ -23,7 +23,7 @@ export function UserMessage({ message }: { message: string }) {
 	return (
 		<div className="flex gap-3">
 			<div className="align-text-top pl-1">
-				<div className="size-6 flex items-center justify-center rounded-full bg-accent text-text-on-brand">
+				<div className="size-6 flex items-center justify-center rounded-full bg-gray-400 dark:bg-gray-600 text-white border">
 					<span className="text-xs">U</span>
 				</div>
 			</div>

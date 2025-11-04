@@ -31,7 +31,7 @@ export function FileTreeItem({
 				onClick={() => onFileClick(item.file!)}
 				className={`flex items-center w-full gap-2 py-1 px-3 transition-colors text-sm ${
 					isCurrentFile
-						? 'text-brand bg-zinc-100'
+						? 'text-brand bg-brand/20 dark:bg-brand/10'
 						: 'text-text-primary/80 hover:bg-accent hover:text-text-primary'
 				}`}
 				style={{ paddingLeft: `${level * 12 + 12}px` }}

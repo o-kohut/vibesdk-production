@@ -377,7 +377,7 @@ export const PreviewIframe = forwardRef<HTMLIFrameElement, PreviewIframeProps>(
                         />
                     )}
 					<div className="text-center p-8 max-w-md">
-						<RefreshCw className="size-8 text-accent animate-spin mx-auto mb-4" />
+						<RefreshCw className="size-8 text-muted-foreground animate-spin mx-auto mb-4" />
 						<h3 className="text-lg font-medium text-text-primary mb-2">
 							Loading Preview
 						</h3>
@@ -388,11 +388,11 @@ export const PreviewIframe = forwardRef<HTMLIFrameElement, PreviewIframeProps>(
 							}
 						</p>
 						{loadState.attempt >= REDEPLOY_AFTER_ATTEMPT && (
-							<p className="text-xs text-accent/70">
+							<p className="text-xs text-muted-foreground">
 								Auto-redeployment triggered to refresh the preview
 							</p>
 						)}
-						<div className="text-xs text-text-primary/50 mt-2">
+						<div className="text-xs muted-foreground mt-2">
 							Preview URLs may take a moment to become available after deployment
 						</div>
 					</div>

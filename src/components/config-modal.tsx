@@ -68,18 +68,18 @@ const getModelDisplayName = (model: AIModels | string): string => {
 // Model recommendations by agent
 const getModelRecommendation = (agentAction: string) => {
   const recommendations: Record<string, string> = {
-    templateSelection: '💡 Recommended: Fast models for quick template selection',
-    blueprint: '🏗️ Recommended: Creative models for architecture design',
-    projectSetup: '⚙️ Recommended: Reliable models for precise setup',
-    phaseGeneration: '📋 Recommended: Large context models for comprehensive planning',
-    firstPhaseImplementation: '🏁 Recommended: High-capability models for foundation development',
-    phaseImplementation: '⚡ Recommended: Strong coding models for implementation',
-    realtimeCodeFixer: '🚀 Recommended: Fast debugging models',
-    fastCodeFixer: '⚡ Recommended: Ultra-fast models for quick fixes',
-    conversationalResponse: '💬 Recommended: Balanced models for natural conversation',
-    codeReview: '🔍 Recommended: Analytical models with large context',
-    fileRegeneration: '📝 Recommended: Pure coding models',
-    screenshotAnalysis: '👁️ Recommended: Vision-capable models for image analysis'
+    templateSelection: 'Recommended: Fast models for quick template selection',
+    blueprint: 'Recommended: Creative models for architecture design',
+    projectSetup: 'Recommended: Reliable models for precise setup',
+    phaseGeneration: 'Recommended: Large context models for comprehensive planning',
+    firstPhaseImplementation: 'Recommended: High-capability models for foundation development',
+    phaseImplementation: 'Recommended: Strong coding models for implementation',
+    realtimeCodeFixer: 'Recommended: Fast debugging models',
+    fastCodeFixer: 'Recommended: Ultra-fast models for quick fixes',
+    conversationalResponse: 'Recommended: Balanced models for natural conversation',
+    codeReview: 'Recommended: Analytical models with large context',
+    fileRegeneration: 'Recommended: Pure coding models',
+    screenshotAnalysis: 'Recommended: Vision-capable models for image analysis'
   };
   return recommendations[agentAction] || '';
 };
@@ -292,7 +292,7 @@ export function ConfigModal({
           <DialogDescription className="space-y-2">
             <p>{agentConfig.description}</p>
             {getModelRecommendation(agentConfig.key) && (
-              <Alert>
+              <Alert variant="warning">
                 <Info className="h-4 w-4" />
                 <AlertDescription className="text-sm">
                   {getModelRecommendation(agentConfig.key)}
@@ -304,7 +304,7 @@ export function ConfigModal({
 
         <div className="space-y-6">
           {/* Current Status */}
-          <div className="flex items-center justify-between p-3 bg-bg-3/50 rounded-lg">
+          <div className="flex items-center justify-between p-3 bg-bg-1 dark:bg-white/5 rounded-lg">
             <div>
               <p className="font-medium text-sm">Configuration Status</p>
               <p className="text-xs text-text-tertiary">
@@ -362,11 +362,9 @@ export function ConfigModal({
                 )}
                 
                 {selectedModelInfo.isPlatformModel && formData.modelName && formData.modelName !== 'default' && (
-                  <div className="flex items-center gap-2 text-sm text-blue-600 bg-blue-50 dark:bg-blue-950/20 px-3 py-2 rounded-md border border-blue-200 dark:border-blue-800">
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span>Platform model with usage limits. Consider BYOK for higher usage.</span>
+                  <div className="flex items-center gap-2 text-xs p-4 rounded-lg border bg-blue-50 dark:bg-blue-500/20 border-blue-600/10 dark:border-blue-100/10 text-blue-600/80 dark:text-blue-300">
+                    <Info className="h-4 w-4 mr-1" />
+                    <span >Platform model with usage limits. Consider BYOK for higher usage.</span>
                   </div>
                 )}
                 
@@ -400,22 +398,22 @@ export function ConfigModal({
           {/* BYOK Information */}
           <div className="space-y-3">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-4 rounded-lg border bg-blue-50/50 border-blue-200">
+              <div className="p-4 rounded-lg border bg-blue-50 dark:bg-blue-500/20 border-blue-600/10 dark:border-blue-100/10">
                 <div className="flex items-center gap-2 mb-2">
-                  <div className="h-2 w-2 rounded-full bg-blue-500"></div>
-                  <h4 className="font-medium text-sm text-blue-900">Platform Models</h4>
+                  <div className="h-2 w-2 rounded-full bg-blue-500 dark:bg-blue-300"></div>
+                  <h4 className="font-medium text-sm text-blue-900 dark:text-blue-100">Platform Models</h4>
                 </div>
-                <p className="text-xs text-blue-700">
+                <p className="text-xs text-blue-600/80 dark:text-blue-300">
                   Models served through our platform with limited quota. No API keys required.
                 </p>
               </div>
               
-              <div className="p-4 rounded-lg border bg-green-50/50 border-green-200">
+              <div className="p-4 rounded-lg border bg-green-50 dark:bg-green-500/20 border-green-600/10 dark:border-green-100/10">
                 <div className="flex items-center gap-2 mb-2">
                   <div className="h-2 w-2 rounded-full bg-green-500"></div>
-                  <h4 className="font-medium text-sm text-green-900">BYOK (Your Keys)</h4>
+                  <h4 className="font-medium text-sm text-green-900 dark:text-green-100">BYOK (Your Keys)</h4>
                 </div>
-                <p className="text-xs text-green-700">
+                <p className="text-xs text-green-700 dark:text-green-300">
                   Your API keys are used for direct billing with providers. Unlimited usage based on your provider account.
                 </p>
               </div>

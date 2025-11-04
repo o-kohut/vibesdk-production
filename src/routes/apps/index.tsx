@@ -64,7 +64,7 @@ export default function AppsPage() {
 	};
 
 	return (
-		<div className="min-h-screen bg-bg-3">
+		<div className="bg-background flex flex-col flex-1">
 			<div className="container mx-auto px-4 py-8">
 				<motion.div
 					initial={{ opacity: 0, y: -20 }}
@@ -73,10 +73,10 @@ export default function AppsPage() {
 				>
 					{/* Header */}
 					<div className="mb-8">
-						<h1 className="text-6xl font-bold mb-3 text-foreground font-heading">
-							MY APPS
+						<h1 className="text-3xl font-bold mb-3 font-heading text-foreground">
+							My Apps
 						</h1>
-						<p className="text-text-tertiary text-lg">
+						<p className="text-muted-foreground text-md">
 							{loading
 								? 'Loading...'
 								: `${totalCount} app${totalCount !== 1 ? 's' : ''} in your workspace`}

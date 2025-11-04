@@ -529,7 +529,7 @@ export default function Chat() {
 			<div className="flex-1 flex min-h-0 overflow-hidden justify-center">
 				<motion.div
 					layout="position"
-					className="flex-1 shrink-0 flex flex-col basis-0 max-w-lg relative z-10 h-full min-h-0"
+					className="flex-1 shrink-0 flex flex-col basis-0 max-w-xl relative z-10 h-full min-h-0"
 				>
 					<div 
 					className={clsx(
@@ -786,7 +786,7 @@ export default function Chat() {
 												: 'Chat with AI...'
 								}
 								rows={1}
-								className="w-full bg-bg-2 border border-text-primary/10 rounded-xl px-3 pr-20 py-2 text-sm outline-none focus:border-white/20 drop-shadow-2xl text-text-primary placeholder:!text-text-primary/50 disabled:opacity-50 disabled:cursor-not-allowed resize-none overflow-y-auto no-scrollbar min-h-[36px] max-h-[120px]"
+								className="w-full bg-bg-2 border border-text-primary/10 rounded-xl px-3 pr-20 py-2 text-sm outline-none focus:border-white/20 drop-shadow-xl text-text-primary placeholder:!text-text-primary/50 disabled:opacity-50 disabled:cursor-not-allowed resize-none overflow-y-auto no-scrollbar min-h-[36px] max-h-[120px]"
 								style={{
 									// Auto-resize based on content
 									height: 'auto',
