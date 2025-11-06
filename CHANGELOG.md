@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.1.0](https://github.com/cloudflare/vibesdk/compare/v1.0.0...v1.1.0) (2025-11-04)
+
+
+### Features
+
+* enhance changelog generation with detailed PR and commit data ([7850fc6](https://github.com/cloudflare/vibesdk/commit/7850fc620cf56372ab364711b1479a65279e5e32))
+* enhance changelog generation with detailed PR and commit data ([01afb74](https://github.com/cloudflare/vibesdk/commit/01afb7410b3cd5e0a5bb228d9aad238e9b1d3985))
+
+
+### Bug Fixes
+
+* change phase not found from error to warning ([2b78809](https://github.com/cloudflare/vibesdk/commit/2b78809a0751f21a1f9637c91cc4238ebfb2bcf1))
+* client and logger management in DeploymentManager ([2a19261](https://github.com/cloudflare/vibesdk/commit/2a192612e0c9c37efabd8712f6804cb184c80745))
+* correct metadata file path and instance ID generation ([4e932f8](https://github.com/cloudflare/vibesdk/commit/4e932f889e7e1630dc1f0693af0b3514c63d69e2))
+
 ## 1.0.0 (2025-11-03)
 
 

@@ -367,7 +367,7 @@ export class SandboxSdkClient extends BaseSandboxService {
     }
 
     private getInstanceMetadataFile(instanceId: string): string {
-        return `${instanceId}-metadata.json`;
+        return `/workspace/${instanceId}-metadata.json`;
     }
 
     private async getInstanceMetadata(instanceId: string): Promise<InstanceMetadata> {
@@ -1131,6 +1131,7 @@ export class SandboxSdkClient extends BaseSandboxService {
             if (localEnvVars && Object.keys(localEnvVars).length > 0) {
                 this.logger.info('Environment variables will be configured via session', { envVars: Object.keys(localEnvVars) });
             }
+            let instanceId: string;
             if (env.ALLOCATION_STRATEGY === 'one_to_one') {
                 // Multiple instances shouldn't exist in the same sandbox
 
@@ -1157,9 +1158,11 @@ export class SandboxSdkClient extends BaseSandboxService {
                         await this.shutdownInstance(firstInstance.runId);
                     }
                 }
-            }
 
-            const instanceId = `i-${generateId()}`;
+				instanceId = `i-${this.sandboxId}`;
+            } else {
+                instanceId = `i-${generateId()}`;
+            }
             this.logger.info('Creating sandbox instance', { instanceId, templateName, projectName });
 
             let results: {previewURL: string, tunnelURL: string, processId: string, allocatedPort: number} | undefined;

@@ -325,7 +325,7 @@ git({ command: 'reset', oid: 'abc123...' })
 **Best Practices:**
 - **Use descriptive messages**: "fix: resolve null pointer in auth.ts" not "fix bug"
 - **Commit before deploying**: Save your work before deploy_preview in case you need to revert
-- **Commit when TASK_COMPLETE**: Always commit your final working state before finishing
+- **Commit before TASK_COMPLETE**: Always commit your final working state before finishing
 
 **Example Workflow:**
 \`\`\`typescript
@@ -434,17 +434,17 @@ You're done when:
 - ❌ You applied fixes but didn't verify them
 
 **When you complete the task:**
-1. State: "TASK_COMPLETE: [brief summary]"
+1. Write: "TASK_COMPLETE: [brief summary]"
 2. Provide a concise final report:
    - Issues found and root cause
    - Fixes applied (file paths)
    - Verification results
    - Current state
-3. **CRITICAL: Once you write "TASK_COMPLETE", IMMEDIATELY HALT. Do NOT make any more tool calls. Your work is done.**
+3. **CRITICAL: Once you write "TASK_COMPLETE", IMMEDIATELY HALT with no more tool calls. Your work is done.**
 
 **If stuck:** 
 1. State: "TASK_STUCK: [reason]" + what you tried
-2. **CRITICAL: Once you write "TASK_STUCK", IMMEDIATELY HALT. Do NOT make any more tool calls. Stop immediately.**
+2. **CRITICAL: Once you write "TASK_STUCK", IMMEDIATELY HALT with no more tool calls. Stop immediately.**
 
 ## Working Style
 - Use your internal reasoning - think deeply, output concisely
@@ -615,7 +615,8 @@ You just attempted to execute "${toolName}" with identical arguments for the ${t
 
 RECOMMENDED ACTIONS:
 1. If your task is complete, state "TASK_COMPLETE: [summary]" and STOP. Once you write 'TASK_COMPLETE' or 'TASK_STUCK', You shall not make any more tool/function calls.
-2. If not complete, try a DIFFERENT approach:
+2. If you observe you have already declared 'TASK_COMPLETE' or 'TASK_STUCK' in the past, Halt immediately. It might be that you are stuck in a loop.
+3. If not complete, try a DIFFERENT approach:
    - Use different tools
    - Use different arguments  
    - Read different files

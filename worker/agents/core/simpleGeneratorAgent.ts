@@ -717,8 +717,8 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
         // First find the phase
         const phases = this.state.generatedPhases;
         if (!phases.some(p => p.name === phaseName)) {
-            this.logger().error(`Phase ${phaseName} not found in generatedPhases array`);
-            throw new Error(`Phase ${phaseName} not found in generatedPhases array`);
+            this.logger().warn(`Phase ${phaseName} not found in generatedPhases array, skipping save`);
+            return;
         }
 
         // Update the phase

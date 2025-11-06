@@ -83,6 +83,10 @@ export class DeploymentManager extends BaseAgentService implements IDeploymentMa
         
         logger.info(`SessionId reset: ${oldSessionId} → ${newSessionId}`);
         
+        // Reset session ID in logger
+        logger.setFields({
+            sessionId: newSessionId,
+        });
         // Invalidate cached sandbox client (tied to old sessionId)
         this.cachedSandboxClient = null;
         
@@ -455,7 +459,6 @@ export class DeploymentManager extends BaseAgentService implements IDeploymentMa
     private async deploy(params: DeploymentParams): Promise<DeploymentResult> {
         const { files, redeploy, commitMessage, clearLogs } = params;
         const logger = this.getLog();
-        const client = this.getClient();
         
         logger.info("Deploying code to sandbox service");
 
@@ -468,7 +471,7 @@ export class DeploymentManager extends BaseAgentService implements IDeploymentMa
 
         // Write files if any
         if (filesToWrite.length > 0) {
-            const writeResponse = await client.writeFiles(
+            const writeResponse = await this.getClient().writeFiles(
                 sandboxInstanceId,
                 filesToWrite,
                 commitMessage
@@ -487,8 +490,8 @@ export class DeploymentManager extends BaseAgentService implements IDeploymentMa
             try {
                 logger.info('Clearing logs and runtime errors for instance', { instanceId: sandboxInstanceId });
                 await Promise.all([
-                    client.getLogs(sandboxInstanceId, true),
-                    client.clearInstanceErrors(sandboxInstanceId)
+                    this.getClient().getLogs(sandboxInstanceId, true),
+                    this.getClient().clearInstanceErrors(sandboxInstanceId)
                 ]);
             } catch (error) {
                 logger.error('Failed to clear logs and runtime errors', error);
