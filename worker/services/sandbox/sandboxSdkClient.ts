@@ -808,10 +808,10 @@ export class SandboxSdkClient extends BaseSandboxService {
         localEnvVars?: Record<string, string>
     ): Promise<CrowdinOAuthProvisioningResult> {
         try {
-            const sandbox = this.getSandbox();
+            const session = await this.getInstanceSession(instanceId);
 
-            // Read wrangler.jsonc file
-            const wranglerFile = await sandbox.readFile(`${instanceId}/wrangler.jsonc`);
+            // Read wrangler.jsonc file using absolute path
+            const wranglerFile = await session.readFile(`/workspace/${instanceId}/wrangler.jsonc`);
             if (!wranglerFile.success) {
                 this.logger.info(`No wrangler.jsonc found for ${instanceId}, skipping Crowdin OAuth provisioning`);
                 return {
@@ -872,7 +872,7 @@ export class SandboxSdkClient extends BaseSandboxService {
                 .replace(/\{\{CROWDIN_CLIENT_ID\}\}/g, prodOAuthResult.clientId!)
                 .replace(/\{\{CROWDIN_CLIENT_SECRET\}\}/g, prodOAuthResult.clientSecret!);
 
-            const writeResult = await sandbox.writeFile(`${instanceId}/wrangler.jsonc`, updatedWranglerContent);
+            const writeResult = await session.writeFile(`/workspace/${instanceId}/wrangler.jsonc`, updatedWranglerContent);
 
             if (writeResult.success) {
                 wranglerUpdated = true;
