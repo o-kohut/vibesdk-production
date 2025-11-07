@@ -157,18 +157,18 @@ export function DeploymentControls({
 					subtitle: "Deploy will be enabled after Phase 1 is implemented",
 					buttonDisabled: true,
 					buttonVariant: "outline" as const,
-					buttonClass: "bg-bg-3 dark:bg-bg-3 text-muted-foreground dark:text-muted-foreground border-muted dark:border-muted cursor-not-allowed"
+					buttonClass: "bg-bg-1 dark:bg-bg-3 text-muted-foreground/80 dark:text-muted-foreground/70 border-muted dark:border-muted cursor-not-allowed"
 				};
 			
 			case DeploymentState.READY_TO_DEPLOY:
 				return {
-					panelClass: "bg-primary/5 dark:bg-primary/10 border-primary/20 dark:border-primary/20",
-					iconClass: "bg-foreground/10 border-primary/10",
-					icon: <Zap className="w-4 h-4 color-primary-foreground" />,
-					titleColor: "text-foreground dark:text-foreground",
-					subtitleColor: "text-muted-foreground/80 dark:text-muted-foreground/70",
+					panelClass: "bg-brand/10 dark:bg-brand/10 border-brand/10 dark:border-brand/20",
+					iconClass: "bg-brand/10 border-brand/10",
+					icon: <Zap className="w-4 h-4 text-brand" />,
+					titleColor: "text-brand dark:text-foreground",
+					subtitleColor: "text-brand/70 dark:text-foreground/70",
 					title: "Ready to Deploy",
-					subtitle: "It's Free! Deploys to Cloudflare Workers for Platform",
+					subtitle: "It's Free!<br /> Deploys to Cloudflare Workers for Platform",
 					buttonDisabled: false,
 					buttonVariant: "primary" as const,
 					buttonClass: "bg-primary text-primary-foreground hover:bg-primary/90"
@@ -204,12 +204,12 @@ export function DeploymentControls({
 			
 			case DeploymentState.ERROR:
 				return {
-					panelClass: "bg-red-50/40 dark:bg-red-950/20 border-red-200/60 dark:border-red-800/30 shadow-sm dark:shadow-red-900/20",
-					iconClass: "bg-red-500 dark:bg-red-300/10 border-red-500 dark:border-red-300/10 text-red-500",
+					panelClass: "bg-red-300/10 dark:bg-red-950/20 border-red-200/60 dark:border-red-800/30 dark:shadow-red-900/20",
+					iconClass: "bg-red-300/10 border-red-300/20 dark:border-red-300/10 text-red-700 dark:text-red-500",
 					icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>,
-					titleColor: "text-red-900 dark:text-red-100",
-					subtitleColor: "text-red-600 dark:text-red-300",
-					title: "❌ Deployment Failed",
+					titleColor: "text-red-700 dark:text-red-500",
+					subtitleColor: "text-red-500/80 dark:text-red-400/80",
+					title: "Deployment Failed",
 					subtitle: "Error in deployment, please try again",
 					buttonDisabled: !isPhase1Complete,
 					buttonVariant: "default" as const,
@@ -258,7 +258,7 @@ export function DeploymentControls({
 								"text-xs mt-0.5 transition-colors duration-300",
 								stateConfig.subtitleColor
 							)}>
-								{stateConfig.subtitle}
+								<div dangerouslySetInnerHTML={{ __html: stateConfig.subtitle }} />
 							</div>
 						</div>
 						
@@ -273,12 +273,12 @@ export function DeploymentControls({
 						>
 							{isCurrentlyDeploying ? (
 								<>
-									<Loader className="w-4 h-4 mr-2 animate-spin" />
+									<Loader className="w-4 h-4 animate-spin" />
 									{currentState === DeploymentState.REDEPLOYING ? 'Redeploying...' : 'Deploying...'}
 								</>
 							) : (
 								<>
-									<Zap className="w-4 h-4 mr-2" />
+									<Zap className="w-4 h-4" />
 									Deploy to Cloudflare
 								</>
 							)}
@@ -335,8 +335,8 @@ export function DeploymentControls({
 
 					{/* Shareable Link - Only shown when app is public */}
 					{localVisibility === 'public' && appId && (
-						<div className="bg-accent/5 border border-accent/20 rounded-md p-3 mb-3">
-							<div className="text-xs text-accent font-medium mb-1 flex items-center gap-1">
+						<div className="bg-foreground/5 border border-foreground/10 rounded-md p-3 mb-3">
+							<div className="text-xs text-foreground font-medium mb-1 flex items-center gap-1">
 								<Share2 className="w-3 h-3" />
 								Shareable Link:
 							</div>
@@ -352,7 +352,7 @@ export function DeploymentControls({
 										setTimeout(() => setShareableLinkCopyText('Copy Link'), 2000);
 									}}
 									variant="secondary"
-									className="h-7 px-2 text-xs bg-accent/10 border border-accent/30 text-accent hover:bg-accent/20 transition-all flex-shrink-0"
+									className="h-7 px-2 text-xs bg-foreground/10 border border-foreground/30 text-foreground hover:bg-foreground/20 transition-all flex-shrink-0"
 								>
 									{shareableLinkCopyText}
 								</Button>

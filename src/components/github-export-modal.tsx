@@ -580,7 +580,7 @@ export function GitHubExportModal({
                                             />
                                             <Globe className="w-4 h-4 text-text-primary/60" />
                                             <div>
-                                                <p className="text-sm font-medium text-text-secondary">Public</p>
+                                                <p className="text-sm font-medium text-muted-foreground">Public</p>
                                                 <p className="text-xs text-text-primary/60">Anyone can see this repository</p>
                                             </div>
                                         </label>
@@ -594,7 +594,7 @@ export function GitHubExportModal({
                                             />
                                             <Lock className="w-4 h-4 text-text-primary/60" />
                                             <div>
-                                                <p className="text-sm font-medium text-text-secondary">Private</p>
+                                                <p className="text-sm font-medium text-muted-foreground">Private</p>
                                                 <p className="text-xs text-text-primary/60">Only you can see this repository</p>
                                             </div>
                                         </label>

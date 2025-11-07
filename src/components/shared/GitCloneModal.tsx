@@ -148,7 +148,7 @@ export function GitCloneModal({
 						<>
 							<div className="space-y-2">
 								<div className="flex items-center justify-between">
-									<span className="text-sm font-medium text-text-secondary">
+									<span className="text-sm font-medium text-muted-foreground">
 										Clone Command
 									</span>
 									<Button
@@ -171,7 +171,7 @@ export function GitCloneModal({
 
 							<div className="space-y-2">
 								<div className="flex items-center justify-between">
-									<span className="text-sm font-medium text-text-secondary">Quick Start</span>
+									<span className="text-sm font-medium text-muted-foreground">Quick Start</span>
 									<Button
 										variant="ghost"
 										size="icon"
@@ -229,7 +229,7 @@ export function GitCloneModal({
 								<>
 									<div className="space-y-2">
 										<div className="flex items-center justify-between">
-											<span className="text-sm font-medium text-text-secondary">
+											<span className="text-sm font-medium text-muted-foreground">
 												Clone Command
 											</span>
 											<div className="flex items-center gap-2">
@@ -298,7 +298,7 @@ export function GitCloneModal({
 
 									<div className="space-y-2">
 										<div className="flex items-center justify-between">
-											<span className="text-sm font-medium text-text-secondary">Quick Start</span>
+											<span className="text-sm font-medium text-muted-foreground">Quick Start</span>
 											<Button
 												variant="ghost"
 												size="icon"

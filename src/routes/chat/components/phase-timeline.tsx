@@ -45,7 +45,7 @@ interface StatusLoaderProps {
 const StatusLoader = ({ size = 'md', color = 'accent' }: StatusLoaderProps) => {
 	const sizeClass = size === 'sm' ? 'size-3' : 'w-4 h-4';
 	const colorMap = {
-		accent: 'text-accent',
+		accent: 'text-brand',
 		blue: 'text-blue-400',
 		orange: 'text-emerald-600 dark:text-emerald-400',
 		tertiary: 'text-muted-foreground/80 dark:text-muted-foreground/70',
@@ -57,7 +57,7 @@ const StatusLoader = ({ size = 'md', color = 'accent' }: StatusLoaderProps) => {
 const StatusCheck = ({ size = 'md', color = 'green' }: StatusLoaderProps) => {
 	const sizeClass = size === 'sm' ? 'size-3' : 'w-4 h-4';
 	const colorMap = {
-		accent: 'text-accent',
+		accent: 'text-brand',
 		blue: 'text-blue-400',
 		orange: 'text-emerald-600 dark:text-emerald-400',
 		tertiary: 'text-muted-foreground/80 dark:text-muted-foreground/70',
@@ -83,7 +83,7 @@ function StatusIcon({ status, size = 'md', className }: StatusIconProps) {
 
 	switch (status) {
 		case 'generating':
-			return <Loader className={clsx(iconClasses, 'animate-spin text-accent', className)} />;
+			return <Loader className={clsx(iconClasses, 'animate-spin text-brand', className)} />;
 		case 'validating':
 			return <Loader className={clsx(iconClasses, 'animate-spin text-blue-400', className)} />;
 		case 'completed':
@@ -93,7 +93,7 @@ function StatusIcon({ status, size = 'md', className }: StatusIconProps) {
 		case 'error':
 			return <AlertCircle className={clsx(iconClasses, 'text-red-500', className)} />;
 		case 'active':
-			return <Loader className={clsx(iconClasses, 'animate-spin text-accent', className)} />;
+			return <Loader className={clsx(iconClasses, 'animate-spin text-brand', className)} />;
 		case 'pending':
 		default:
 			return <div className={clsx(iconClasses, 'bg-bg-3-foreground/40 dark:bg-bg-3-foreground/30 rounded-full', className)} />;
@@ -756,7 +756,7 @@ export function PhaseTimeline({
 										>
 											{/* Subtle vertical line connecting phases */}
 											{phaseIndex < phaseTimeline.length - 1 && (
-												<div className="absolute left-[5px] w-[0.5px] h-full top-3 bg-border-primary/40" />
+												<div className="absolute left-[5px] w-[0.5px] h-full top-3 bg-foreground/30" />
 											)}
 											{/* Phase Implementation Header */}
 											<button
@@ -861,22 +861,22 @@ export function PhaseTimeline({
 										const validatingPhase = getPhaseByStatus(phaseTimeline, 'validating');
 										if (validatingPhase) {
 											return (
-												<div className="space-y-1 relative bg-blue-50/5 border border-blue-200/20 rounded-lg p-3">
+												<div className="space-y-1 relative bg-blue-200/50 dark:bg-blue-500/20 border border-blue-200/20 dark:border-blue-300/20 rounded-lg p-3">
 													<div className="flex items-center gap-2">
 														<StatusLoader size="sm" color="blue" />
-														<span className="text-sm font-medium text-blue-400">Reviewing phase...</span>
+														<span className="text-sm font-medium text-blue-400 dark:text-blue-500/80">Reviewing phase...</span>
 													</div>
-													<span className="text-xs text-blue-300/80 ml-5">Identifying issues...</span>
+													<span className="text-xs text-blue-400/80 dark:text-blue-300/80 ml-5">Identifying issues...</span>
 												</div>
 											);
 										} else if (isPreviewDeploying) {
 											return (
-												<div className="space-y-1 relative bg-emerald-500/10 dark:bg-emerald-500/20 border border-emerald-200/20 dark:border-emerald-100/20 rounded-lg p-3">
+												<div className="space-y-1 relative bg-zinc-500/10 dark:bg-zinc-500/20 border border-zinc-200 dark:border-zinc-100/10 rounded-lg p-3">
 													<div className="flex items-center gap-2">
-														<StatusLoader size="sm" color="orange" />
-														<span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">Deploying preview...</span>
+														<StatusLoader size="sm" />
+														<span className="text-sm font-medium text-zinc-600 dark:text-zinc-400">Deploying preview...</span>
 													</div>
-													<span className="text-xs text-emerald-600/80 dark:text-emerald-300/80 ml-5">Updating your preview environment</span>
+													<span className="text-xs text-zinc-600/80 dark:text-zinc-300/80 ml-5">Updating your preview environment</span>
 												</div>
 											);
 										}
@@ -958,7 +958,7 @@ export function PhaseTimeline({
 									<AnimatedStatusIndicator status="completed" />
 
 									<div className="flex flex-col gap-2 flex-1">
-										<span className="font-medium text-text-secondary">Done</span>
+										<span className="font-medium text-muted-foreground">Done</span>
 									</div>
 								</motion.div>
 							);
@@ -981,7 +981,7 @@ export function PhaseTimeline({
 									<AnimatedStatusIndicator status="active" />
 
 									<div className="flex flex-col gap-2 flex-1">
-										<span className="font-medium text-text-secondary">Debugging in progress...</span>
+										<span className="font-medium text-muted-foreground">Debugging in progress...</span>
 									</div>
 								</motion.div>
 							);

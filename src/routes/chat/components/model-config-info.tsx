@@ -95,7 +95,7 @@ const getModelDisplayName = (modelValue?: string) => {
 
 // Helper to get provider info
 const getProviderInfo = (modelValue?: string) => {
-  if (!modelValue) return { name: 'Default', color: 'bg-bg-3 text-text-tertiary' };
+  if (!modelValue) return { name: 'Default', color: 'bg-bg-3 text-muted-foreground/50' };
   
   if (modelValue.includes('cerebras/')) {
     return { name: 'Cerebras', color: 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400' };
@@ -143,10 +143,10 @@ function ConfigInfoCard({
             <Settings className="h-3 w-3" />
           </div>
           <div className="min-w-0 flex-1">
-            <h6 className="font-medium text-sm mb-1 text-text-secondary" title={agent.name}>
+            <h6 className="font-medium text-sm mb-1 text-muted-foreground/80 dark:text-muted-foreground/70" title={agent.name}>
               {agent.name}
             </h6>
-            <p className="text-xs text-text-tertiary line-clamp-2" title={agent.description}>
+            <p className="text-xs text-muted-foreground/50 line-clamp-2" title={agent.description}>
               {agent.description}
             </p>
           </div>
@@ -159,7 +159,7 @@ function ConfigInfoCard({
       
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-2">
-          <span className="text-sm font-medium text-text-secondary" title={modelDisplayName}>
+          <span className="text-sm font-medium text-muted-foreground" title={modelDisplayName}>
             {modelDisplayName}
           </span>
           <Badge variant="secondary" className={`text-xs shrink-0 ${providerInfo.color}`}>
@@ -229,8 +229,8 @@ export function ModelConfigInfo({ configs, onRequestConfigs, loading }: ModelCon
         className="group relative flex items-center gap-1.5 p-1.5 group-hover:pl-2 group-hover:pr-2.5 rounded-full group-hover:rounded-md transition-all duration-300 ease-in-out hover:bg-bg-4 border border-transparent hover:border-border-primary hover:shadow-sm overflow-hidden"
         title="View current model configurations"
       >
-        <Info className="size-3.5 text-text-primary/60 group-hover:text-brand-primary transition-colors duration-300 flex-shrink-0" />
-        <span className="max-w-0 group-hover:max-w-[75px] opacity-0 group-hover:opacity-100 overflow-hidden transition-all duration-300 ease-in-out whitespace-nowrap text-xs font-medium text-text-primary">
+        <Info className="size-3.5 text-foreground/60 group-hover:text-brand-primary transition-colors duration-300 flex-shrink-0" />
+        <span className="max-w-0 group-hover:max-w-[75px] opacity-0 group-hover:opacity-100 overflow-hidden transition-all duration-300 ease-in-out whitespace-nowrap text-xs font-medium text-foreground">
           Model Info
         </span>
       </button>
@@ -249,11 +249,11 @@ export function ModelConfigInfo({ configs, onRequestConfigs, loading }: ModelCon
 
           {loading ? (
             <div className="flex items-center gap-3 p-8">
-              <Settings className="h-5 w-5 animate-spin text-text-tertiary" />
-              <span className="text-sm text-text-tertiary">Loading model configurations...</span>
+              <Settings className="h-5 w-5 animate-spin text-muted-foreground/50" />
+              <span className="text-sm text-muted-foreground/50">Loading model configurations...</span>
             </div>
           ) : !configs ? (
-            <div className="text-center py-8 text-text-tertiary">
+            <div className="text-center py-8 text-muted-foreground/50">
               <p>No configuration data available.</p>
               <Button 
                 variant="outline" 
@@ -296,17 +296,17 @@ export function ModelConfigInfo({ configs, onRequestConfigs, loading }: ModelCon
                 return (
                   <TabsContent key={tab.id} value={tab.id} className="mt-6">
                     <div className="space-y-4">
-                      <div className="text-sm text-text-tertiary">
+                      <div className="text-sm text-muted-foreground/50">
                         {tab.description} • {agents.length} agent{agents.length !== 1 ? 's' : ''}
                         {getCustomizedCountForTab(tab.id) > 0 && (
-                          <span className="ml-2 text-text-primary font-medium">
+                          <span className="ml-2 text-foreground font-medium">
                             ({getCustomizedCountForTab(tab.id)} customized)
                           </span>
                         )}
                       </div>
 
                       {agents.length === 0 ? (
-                        <div className="text-center py-8 text-text-tertiary">
+                        <div className="text-center py-8 text-muted-foreground/50">
                           No agents in this category.
                         </div>
                       ) : (

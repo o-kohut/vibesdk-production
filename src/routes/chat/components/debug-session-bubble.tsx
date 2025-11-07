@@ -67,7 +67,7 @@ className="my-4"
 >
 <div className={clsx(
 "rounded-lg border overflow-hidden bg-bg-2",
-isActive && "border-accent/30",
+isActive && "border-foreground/20",
 !isActive && hasError && "border-red-500/30",
 !isActive && !hasError && "border-green-500/30"
 )}>
@@ -77,13 +77,13 @@ onClick={() => setIsExpanded(!isExpanded)}
 className={clsx(
 "w-full px-4 py-3 flex items-center justify-between",
 "hover:bg-bg-3/50 transition-colors",
-isExpanded && "border-b border-border-primary/30"
+isExpanded && "border-b border-foreground/20"
 )}
 >
 <div className="flex items-center gap-2.5 flex-1 min-w-0">
 {/* Status icon - minimal */}
 {isActive ? (
-<Loader className="size-4 text-accent animate-spin shrink-0" />
+<Loader className="size-4 text-foreground animate-spin shrink-0" />
 ) : hasError ? (
 <AlertTriangle className="size-4 text-red-500 shrink-0" />
 ) : (
@@ -93,7 +93,7 @@ isExpanded && "border-b border-border-primary/30"
 {/* Title */}
 <span className={clsx(
 "text-sm font-medium",
-isActive && "text-accent",
+isActive && "text-foreground",
 hasError && !isActive && "text-red-500",
 !isActive && !hasError && "text-green-500"
 )}>
@@ -110,7 +110,7 @@ hasError && !isActive && "text-red-500",
 </span>
 )}
 {toolCallCount > 0 && (
-<span className="px-1.5 py-0.5 rounded bg-bg-3/50 font-medium">
+<span className="px-1.5 py-0.5 rounded bg-foreground/10 font-medium">
 {toolCallCount}
 </span>
 )}
@@ -177,7 +177,7 @@ exit={{ opacity: 0, y: 10 }}
 onClick={scrollToBottom}
 className={clsx(
 "absolute bottom-3 right-3 size-8 rounded-md",
-"bg-bg-3 hover:bg-bg-3/80 border border-border-primary/30",
+"bg-bg-3 hover:bg-bg-3/80 border border-foreground/20",
 "flex items-center justify-center",
 "transition-colors"
 )}

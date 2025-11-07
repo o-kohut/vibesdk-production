@@ -25,7 +25,7 @@ const getModelDisplayName = (modelValue?: string) => {
 
 // Helper function to get provider badge info
 const getProviderInfo = (modelValue?: string) => {
-  if (!modelValue) return { name: 'Default', color: 'bg-bg-3 text-text-tertiary' };
+  if (!modelValue) return { name: 'Default', color: 'bg-bg-3 text-muted-foreground/50' };
   
   // Check specific prefixes first to avoid incorrect matches
   if (modelValue.includes('cerebras/')) {
@@ -103,7 +103,7 @@ export function ConfigCard({
               <h5 className="font-medium text-md leading-tight mb-1 break-words" title={agent.name}>
                 {agent.name}
               </h5>
-              <p className="text-xs text-text-tertiary line-clamp-3 leading-tight overflow-hidden break-words" title={agent.description}>
+              <p className="text-xs text-muted-foreground/50 line-clamp-3 leading-tight overflow-hidden break-words" title={agent.description}>
                 {agent.description}
               </p>
             </div>
@@ -229,7 +229,7 @@ export function ConfigCard({
                     size="sm"
                     variant="ghost"
                     onClick={onReset}
-                    className="h-8 w-8 p-0 text-text-tertiary shrink-0"
+                    className="h-8 w-8 p-0 text-muted-foreground/50 shrink-0"
                   >
                     <RotateCcw className="h-3 w-3" />
                   </Button>

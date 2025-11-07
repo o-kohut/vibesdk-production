@@ -28,8 +28,8 @@ export function UserMessage({ message }: { message: string }) {
 				</div>
 			</div>
 			<div className="flex flex-col gap-2 min-w-0">
-				<div className="font-medium text-text-50">You</div>
-				<Markdown className="text-text-primary/80">{sanitizedMessage}</Markdown>
+				<div className="font-medium text-muted-foreground/50">You</div>
+				<Markdown className="text-muted-foreground/80">{sanitizedMessage}</Markdown>
 			</div>
 		</div>
 	);
@@ -41,20 +41,20 @@ type ContentItem =
 
 function JsonRenderer({ data }: { data: unknown }) {
 	if (typeof data !== 'object' || data === null) {
-		return <span className="text-text-primary whitespace-pre-wrap">{String(data)}</span>;
+		return <span className="text-foreground whitespace-pre-wrap">{String(data)}</span>;
 	}
 
 	return (
 		<div className="flex flex-col gap-1">
 			{Object.entries(data).map(([key, value]) => (
 				<div key={key} className="flex gap-2">
-					<span className="text-accent font-medium flex-shrink-0">{key}:</span>
+					<span className="text-brand font-medium flex-shrink-0">{key}:</span>
 					{typeof value === 'object' && value !== null ? (
 						<div className="flex-1">
 							<JsonRenderer data={value} />
 						</div>
 					) : (
-						<span className="text-text-primary flex-1 whitespace-pre-wrap break-words">
+						<span className="text-foreground flex-1 whitespace-pre-wrap break-words">
 							{String(value)}
 						</span>
 					)}
@@ -203,8 +203,8 @@ export function ToolStatusIndicator({ event }: { event: ToolEvent }) {
 				onClick={() => hasResult && setIsExpanded(!isExpanded)}
 				className={clsx(
 					'flex items-center gap-1.5 text-xs',
-					isDeepDebug ? 'text-accent font-medium' : 'text-text-tertiary',
-					hasResult && 'cursor-pointer hover:text-text-secondary transition-colors'
+					isDeepDebug ? 'text-foreground font-medium' : 'text-muted-foreground dark:text-muted-foreground/70',
+					hasResult && 'cursor-pointer hover:text-muted-foreground/80 dark:hover:text-muted-foreground/70 transition-colors'
 				)}
 				disabled={!hasResult}
 			>
@@ -221,7 +221,7 @@ export function ToolStatusIndicator({ event }: { event: ToolEvent }) {
 				<div className={clsx(
 					'p-3 rounded-md text-xs font-mono border overflow-auto',
 					isDeepDebug 
-						? 'bg-surface-tertiary/30 border-accent/20 max-h-[600px]' 
+						? 'bg-surface-tertiary/30 border-foreground/20 max-h-[600px]' 
 						: 'bg-surface-secondary border-border max-h-96'
 				)}>
 					<ToolResultRenderer result={event.result} toolName={event.name} />
@@ -349,7 +349,7 @@ export function AIMessage({
 				<AIAvatar className="size-6 text-emerald-600" />
 			</div>
 			<div className="flex flex-col gap-2 min-w-0">
-				<div className="font-mono font-medium text-text-50">Orange</div>
+				<div className="font-mono font-medium text-muted-foreground/70">Orange</div>
 				
 				{/* Message content with inline tool events (from streaming) */}
 				{orderedContent.length > 0 && (
