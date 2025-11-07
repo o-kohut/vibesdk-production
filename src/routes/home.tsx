@@ -1,15 +1,12 @@
 import { useRef, useState, useEffect, useMemo } from 'react';
 import { ArrowRight, Info } from 'react-feather';
 import { useNavigate } from 'react-router';
-import { useAuth } from '@/contexts/auth-context';
 import {
 	AgentModeToggle,
 	type AgentMode,
 } from '../components/agent-mode-toggle';
 import { useAuthGuard } from '../hooks/useAuthGuard';
-import { usePaginatedApps } from '@/hooks/use-paginated-apps';
 import { AnimatePresence, LayoutGroup, motion } from 'framer-motion';
-import { AppCard } from '@/components/shared/AppCard';
 import clsx from 'clsx';
 import { useImageUpload } from '@/hooks/use-image-upload';
 import { useDragDrop } from '@/hooks/use-drag-drop';
@@ -23,7 +20,6 @@ export default function Home() {
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 	const [agentMode, setAgentMode] = useState<AgentMode>('deterministic');
 	const [query, setQuery] = useState('');
-	const { user } = useAuth();
 
 	const { images, addImages, removeImage, clearImages, isProcessing } = useImageUpload({
 		onError: (error) => {
@@ -51,18 +47,6 @@ export default function Home() {
 	const [currentPlaceholderText, setCurrentPlaceholderText] = useState("");
 	const [isPlaceholderTyping, setIsPlaceholderTyping] = useState(true);
 
-	const {
-		apps,
-		loading,
-	} = usePaginatedApps({
-		type: 'public',
-		defaultSort: 'popular',
-		defaultPeriod: 'week',
-		limit: 6,
-	});
-
-	// Discover section should appear only when enough apps are available and loading is done
-	const discoverReady = useMemo(() => !loading && (apps?.length ?? 0) > 5, [loading, apps]);
 
 	const handleCreateApp = (query: string, mode: AgentMode) => {
 		const encodedQuery = encodeURIComponent(query);
@@ -134,8 +118,6 @@ export default function Home() {
 		}
 	}, [currentPlaceholderText, currentPlaceholderPhraseIndex, isPlaceholderTyping, placeholderPhrases]);
 
-	const discoverLinkRef = useRef<HTMLDivElement>(null);
-
 	return (
 		<div className="relative flex flex-col items-center size-full">
 			{/* Dotted background pattern - extends to full viewport */}
@@ -172,7 +154,7 @@ export default function Home() {
 						transition={{ layout: { duration: 0.5, ease: [0.22, 1, 0.36, 1] } }}
 						className={clsx(
 							"px-6 p-8 flex flex-col items-center z-10",
-							discoverReady ? "mt-48" : "mt-[20vh] sm:mt-[24vh] md:mt-[28vh]"
+							"mt-[20vh] sm:mt-[24vh] md:mt-[28vh]"
 						)}>
 						<h1 className="text-shadow-sm text-accent font-medium leading-[1.1] tracking-tight text-5xl w-full mb-4 bg-clip-text bg-gradient-to-r from-text-primary to-text-primary/90">
 							Build your Crowdin app
@@ -277,241 +259,7 @@ export default function Home() {
 						</motion.div>
 					)}
 				</AnimatePresence>
-
-				<AnimatePresence>
-					{discoverReady && (
-						<motion.section
-							key="discover-section"
-							layout
-							initial={{ opacity: 0, height: 0 }}
-							animate={{ opacity: 1, height: "auto" }}
-							exit={{ opacity: 0, height: 0 }}
-							transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-							className={clsx('max-w-6xl mx-auto px-4 z-10', images.length > 0 ? 'mt-10' : 'mt-16 mb-8')}
-						>
-							<div className='flex flex-col items-start'>
-								<h2 className="text-2xl font-medium text-text-secondary/80">Discover Apps built by the community</h2>
-								<div ref={discoverLinkRef} className="text-md font-light mb-4 text-text-tertiary hover:underline underline-offset-4 select-text cursor-pointer" onClick={() => navigate('/discover')} >View All</div>
-								<motion.div
-									layout
-									transition={{ duration: 0.4 }}
-									className="grid grid-cols-2 xl:grid-cols-3 gap-6"
-								>
-									<AnimatePresence mode="popLayout">
-										{apps.map(app => (
-											<AppCard
-												key={app.id}
-												app={app}
-												onClick={() => navigate(`/app/${app.id}`)}
-												showStats={true}
-												showUser={true}
-												showActions={false}
-											/>
-										))}
-									</AnimatePresence>
-								</motion.div>
-							</div>
-						</motion.section>
-					)}
-				</AnimatePresence>
 			</LayoutGroup>
-
-			{/* Nudge towards Discover */}
-			{user && <CurvedArrow sourceRef={discoverLinkRef} target={{ x: 50, y: window.innerHeight - 60 }} />}
 		</div>
 	);
 }
-
-
-
-type ArrowProps = {
-	/** Ref to the source element the arrow starts from */
-	sourceRef: React.RefObject<HTMLElement | null>;
-	/** Target point in viewport/client coordinates */
-	target: { x: number; y: number };
-	/** Curve intensity (0.1 - 1.5 is typical) */
-	curvature?: number;
-	/** Optional pixel offset from source element edge */
-	sourceOffset?: number;
-	/** If true, hides the arrow when the source is offscreen/not measurable */
-	hideWhenInvalid?: boolean;
-};
-
-type Point = { x: number; y: number };
-
-export const CurvedArrow: React.FC<ArrowProps> = ({
-	sourceRef,
-	target,
-	curvature = 0.5,
-	sourceOffset = 6,
-	hideWhenInvalid = true,
-}) => {
-	const [start, setStart] = useState<Point | null>(null);
-	const [end, setEnd] = useState<Point | null>(null);
-
-	const rafRef = useRef<number | null>(null);
-	const roRef = useRef<ResizeObserver | null>(null);
-
-	const compute = () => {
-		const el = sourceRef.current;
-		if (!el) {
-			setStart(null);
-			setEnd(null);
-			return;
-		}
-
-		const rect = el.getBoundingClientRect();
-		if (!rect || rect.width === 0 || rect.height === 0) {
-			setStart(null);
-			setEnd(null);
-			return;
-		}
-
-		const endPoint: Point = { x: target.x, y: target.y };
-
-		// Choose an anchor on the source: midpoint of the side facing the target
-		const centers = {
-			right: { x: rect.right, y: rect.top + rect.height / 2 },
-			left: { x: rect.left, y: rect.top + rect.height / 2 },
-		};
-
-		// Distances to target from each side center
-		const dists = Object.fromEntries(
-			Object.entries(centers).map(([side, p]) => [
-				side,
-				(p.x - endPoint.x) ** 2 + (p.y - endPoint.y) ** 2,
-			])
-		) as Record<keyof typeof centers, number>;
-
-		const bestSide = (Object.entries(dists).sort((a, b) => a[1] - b[1])[0][0] ||
-			"right") as keyof typeof centers;
-
-		// Nudge start point slightly outside the element for visual clarity
-		const nudge = (p: Point, side: keyof typeof centers, offset: number) => {
-			switch (side) {
-				case "right":
-					return { x: p.x + offset, y: p.y };
-				case "left":
-					return { x: p.x - offset, y: p.y };
-			}
-		};
-
-		const startPoint = nudge(centers[bestSide], bestSide, sourceOffset);
-
-		setStart(startPoint);
-		setEnd(endPoint);
-	};
-
-	// Throttle updates with rAF to avoid layout thrash
-	const scheduleCompute = () => {
-		if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
-		rafRef.current = requestAnimationFrame(compute);
-	};
-
-	useEffect(() => {
-		scheduleCompute();
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [target.x, target.y, sourceRef.current]);
-
-	useEffect(() => {
-		const onScroll = () => scheduleCompute();
-		const onResize = () => scheduleCompute();
-
-		window.addEventListener("scroll", onScroll, { passive: true });
-		window.addEventListener("resize", onResize);
-
-		// Track source element size changes
-		const el = sourceRef.current;
-		if ("ResizeObserver" in window) {
-			roRef.current = new ResizeObserver(() => scheduleCompute());
-			if (el) roRef.current.observe(el);
-		}
-
-		scheduleCompute();
-
-		return () => {
-			window.removeEventListener("scroll", onScroll);
-			window.removeEventListener("resize", onResize);
-			if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
-			if (roRef.current && el) roRef.current.unobserve(el);
-		};
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, []);
-
-	const d = useMemo(() => {
-		if (!start || !end) return "";
-
-		const dx = end.x - start.x;
-		const dy = end.y - start.y;
-
-		// Control points: bend the curve based on the primary axis difference.
-		// This gives a nice S or C curve without sharp kinks.
-		const cpOffset = Math.max(Math.abs(dx), Math.abs(dy)) * curvature;
-
-		const c1: Point = { x: start.x + cpOffset * (dx >= 0 ? 1 : -1), y: start.y };
-		const c2: Point = { x: end.x - cpOffset * (dx >= 0 ? 1 : -1), y: end.y };
-
-		return `M ${start.x},${start.y} C ${c1.x},${c1.y} ${c2.x},${c2.y} ${end.x},${end.y}`;
-	}, [start, end, curvature]);
-
-	const hidden = hideWhenInvalid && (!start || !end);
-
-	if (start && end && (end.y - start.y > 420 || start.x - end.x < 100)) {
-		return null;
-	}
-
-	return (
-		<svg
-			aria-hidden="true"
-			style={{
-				position: "fixed",
-				inset: 0,
-				width: "100vw",
-				height: "100vh",
-				pointerEvents: "none",
-				overflow: "visible",
-				zIndex: 9999,
-				display: hidden ? "none" : "block",
-			}}
-		>
-			<defs>
-				<filter id="discover-squiggle" x="-20%" y="-20%" width="140%" height="140%">
-					<feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="1" seed="3" result="noise" />
-					<feDisplacementMap in="SourceGraphic" in2="noise" scale="1" xChannelSelector="R" yChannelSelector="G" />
-				</filter>
-				<marker id="discover-arrowhead" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="strokeWidth" opacity={0.20}>
-					<path d="M 0 1.2 L 7 4" stroke="var(--color-text-tertiary)" strokeWidth="1.6" strokeLinecap="round" fill="none" />
-					<path d="M 0 6.8 L 7 4" stroke="var(--color-text-tertiary)" strokeWidth="1.2" strokeLinecap="round" fill="none" />
-				</marker>
-			</defs>
-
-			<path
-				d={d}
-				// stroke="var(--color-accent)"
-				stroke="var(--color-text-tertiary)"
-				strokeOpacity={0.20}
-				strokeWidth={1.6}
-				fill="none"
-				strokeLinecap="round"
-				strokeLinejoin="round"
-				vectorEffect="non-scaling-stroke"
-				markerEnd="url(#discover-arrowhead)"
-			/>
-			{/* Soft squiggle overlay for hand-drawn feel */}
-			<g filter="url(#discover-squiggle)">
-				<path
-					d={d}
-					// stroke="var(--color-accent)"
-					stroke="var(--color-text-tertiary)"
-					strokeOpacity={0.12}
-					strokeWidth={1}
-					fill="none"
-					strokeLinecap="round"
-					strokeLinejoin="round"
-					strokeDasharray="8 6 4 9 5 7"
-					vectorEffect="non-scaling-stroke"
-				/>
-			</g>
-		</svg>
-	);
-};
