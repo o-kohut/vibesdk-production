@@ -738,8 +738,8 @@ export default function Chat() {
 					/>
 					<div className="relative">
 						{isChatDragging && (
-							<div className="absolute inset-0 flex items-center justify-center bg-accent/10 backdrop-blur-sm rounded-xl z-50 pointer-events-none">
-								<p className="text-accent font-medium">Drop images here</p>
+							<div className="absolute inset-0 flex items-center justify-center bg-primary/10 backdrop-blur-sm rounded-xl z-50 pointer-events-none">
+								<p className="text-primary font-medium">Drop images here</p>
 							</div>
 						)}
 						{images.length > 0 && (
@@ -786,7 +786,7 @@ export default function Chat() {
 												: 'Chat with AI...'
 								}
 								rows={1}
-								className="w-full bg-bg-2 border border-text-primary/10 rounded-xl px-3 pr-20 py-2 text-sm outline-none focus:border-white/20 drop-shadow-xl text-text-primary placeholder:!text-text-primary/50 disabled:opacity-50 disabled:cursor-not-allowed resize-none overflow-y-auto no-scrollbar min-h-[36px] max-h-[120px]"
+								className="w-full bg-bg-2 border border-foreground/10 rounded-xl px-3 pr-20 py-2 text-sm outline-none focus:border-foreground/50 drop-shadow-xl text-foreground placeholder:!text-muted-foreground/50 disabled:opacity-50 disabled:cursor-not-allowed resize-none overflow-y-auto no-scrollbar min-h-[36px] max-h-[120px]"
 								style={{
 									// Auto-resize based on content
 									height: 'auto',
@@ -823,7 +823,7 @@ export default function Chat() {
 									type="button"
 									onClick={() => imageInputRef.current?.click()}
 									disabled={isChatDisabled || isProcessing}
-									className="p-1.5 rounded-md hover:bg-bg-3 text-text-secondary hover:text-text-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+									className="p-1.5 rounded-md hover:bg-bg-3 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
 									aria-label="Upload image"
 									title="Upload image"
 								>
@@ -832,7 +832,7 @@ export default function Chat() {
 								<button
 									type="submit"
 									disabled={!newMessage.trim() || isChatDisabled}
-									className="p-1.5 rounded-md bg-accent/90 hover:bg-accent/80 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-transparent text-white disabled:text-text-primary transition-colors"
+									className="p-1.5 rounded-md bg-primary/90 hover:bg-primary/80 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-transparent text-primary-foreground disabled:text-text-primary transition-colors"
 								>
 									<ArrowRight className="size-4" />
 								</button>
@@ -993,14 +993,14 @@ export default function Chat() {
 											{/* Right side - can add actions here if needed */}
 										</div>
 									</div>
-									<div className="flex-1 overflow-y-auto bg-bg-3">
+									<div className="flex-1 overflow-y-auto bg-bg-3 dark:bg-bg-1">
 										<div className="py-12 mx-auto">
 											<Blueprint
 												blueprint={
 													blueprint ??
 													({} as BlueprintType)
 												}
-												className="w-full max-w-2xl mx-auto"
+												className="w-full max-w-2xl mx-auto dark:border dark:rounded-xl"
 											/>
 										</div>
 									</div>

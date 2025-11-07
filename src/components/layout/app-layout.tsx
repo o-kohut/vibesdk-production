@@ -28,7 +28,7 @@ export function AppLayout({ children }: AppLayoutProps) {
         <AppSidebar />
         <SidebarInset className={clsx("bg-background flex flex-col h-screen relative", pathname !== "/" && "overflow-hidden")}>
           	<GlobalHeader />
-		  	<div className={clsx("flex flex-col flex-1", pathname !== "/" ? "min-h-0 overflow-auto bg-background" : "bg-gradient-to-b from-transparent to-bg-1")}>
+		  	<div className={clsx("flex flex-col flex-1", pathname !== "/" ? "min-h-0 overflow-y-scroll bg-background" : "bg-gradient-to-b from-transparent to-bg-1")}>
 				{children || <Outlet />}
 				<footer className="footer">
 					<div className="mx-auto pb-4">

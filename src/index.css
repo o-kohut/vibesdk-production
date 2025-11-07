@@ -81,6 +81,7 @@
 @custom-variant dark (&:is(.dark *));
 @plugin '@tailwindcss/typography';
 @theme inline {
+	--grid-color: #ffffff2e;
 	--radius-sm:
 		calc(var(--radius) - 4px);
 	--radius-md:

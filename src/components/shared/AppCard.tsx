@@ -225,22 +225,21 @@ const StatItem = ({
 	value: number;
 	highlighted?: boolean;
 }) => (
-	<div className="flex items-center gap-1 group-hover:scale-105 transition-transform duration-200">
+	<div className="flex items-center gap-1">
 		<Icon
 			className={cn(
-				'h-4 w-4 transition-all duration-200 text-gray-400',
-				highlighted && 'fill-yellow-500 text-yellow-500 drop-shadow-sm',
-				!highlighted && 'group-hover:text-bg-2',
+				'h-4 w-4 transition-all duration-200 text-muted-foreground/80',
+				highlighted && 'text-yellow-500 drop-shadow-sm',
 			)}
 		/>
-		<span className="font-medium text-xs text-text-tertiary">
+		<span className="font-medium text-xs text-muted-foreground">
 			{value || 0}
 		</span>
 	</div>
 );
 
 const StatsDisplay = ({ stats }: { stats: StatsData }) => (
-	<div className="flex items-center gap-2 text-sm text-text-tertiary/80">
+	<div className="flex items-center gap-2 text-sm text-muted-foreground/80">
 		<StatItem
 			icon={STATS_ICONS.starCount}
 			value={stats.starCount || 0}

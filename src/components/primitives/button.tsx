@@ -14,8 +14,8 @@ export function Button({
 		<button
 			className={clsx(
 				'inline-flex items-center gap-1 px-2 h-8 rounded-lg text-sm font-medium',
-				variant === 'primary' && 'bg-bg-bright text-black',
-				variant === 'secondary' && 'bg-bg-darkest text-text-primary',
+				variant === 'primary' && 'bg-primary text-primary-foreground hover:bg-primary/90',
+				variant === 'secondary' && 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
 				className,
 			)}
 			{...props}

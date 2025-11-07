@@ -151,27 +151,27 @@ export function DeploymentControls({
 					panelClass: "bg-bg-3/30 dark:bg-bg-3/20 border-border-primary/50 dark:border-border-primary/40",
 					iconClass: "bg-bg-3-foreground/40 dark:bg-bg-3-foreground/30 border-muted-foreground/40 dark:border-muted-foreground/30",
 					icon: null,
-					titleColor: "text-text-tertiary dark:text-text-tertiary",
-					subtitleColor: "text-text-tertiary/80 dark:text-text-tertiary/70",
+					titleColor: "text-muted-foreground/80 dark:text-muted-foreground/70",
+					subtitleColor: "text-muted-foreground/80 dark:text-muted-foreground/70",
 					title: "Deploy to Cloudflare",
 					subtitle: "Deploy will be enabled after Phase 1 is implemented",
 					buttonDisabled: true,
 					buttonVariant: "outline" as const,
-					buttonClass: "bg-bg-3 dark:bg-bg-3 text-text-tertiary dark:text-text-tertiary border-muted dark:border-muted cursor-not-allowed"
+					buttonClass: "bg-bg-3 dark:bg-bg-3 text-muted-foreground dark:text-muted-foreground border-muted dark:border-muted cursor-not-allowed"
 				};
 			
 			case DeploymentState.READY_TO_DEPLOY:
 				return {
-					panelClass: "bg-accent/5 dark:bg-accent/10 border-accent/20 dark:border-accent/20",
-					iconClass: "bg-accent border-accent",
-					icon: <Zap className="w-2.5 h-2.5 text-white" />,
-					titleColor: "text-text-primary dark:text-text-primary",
-					subtitleColor: "text-text-tertiary dark:text-text-tertiary",
+					panelClass: "bg-primary/5 dark:bg-primary/10 border-primary/20 dark:border-primary/20",
+					iconClass: "bg-foreground/10 border-primary/10",
+					icon: <Zap className="w-4 h-4 color-primary-foreground" />,
+					titleColor: "text-foreground dark:text-foreground",
+					subtitleColor: "text-muted-foreground/80 dark:text-muted-foreground/70",
 					title: "Ready to Deploy",
 					subtitle: "It's Free! Deploys to Cloudflare Workers for Platform",
 					buttonDisabled: false,
 					buttonVariant: "primary" as const,
-					buttonClass: "bg-accent text-white border-emerald-500 dark:border-emerald-600 hover:scale-105"
+					buttonClass: "bg-primary text-primary-foreground hover:bg-primary/90"
 				};
 			
 			case DeploymentState.DEPLOYING:
@@ -205,8 +205,8 @@ export function DeploymentControls({
 			case DeploymentState.ERROR:
 				return {
 					panelClass: "bg-red-50/40 dark:bg-red-950/20 border-red-200/60 dark:border-red-800/30 shadow-sm dark:shadow-red-900/20",
-					iconClass: "bg-red-500 dark:bg-red-600 border-red-500 dark:border-red-600",
-					icon: <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>,
+					iconClass: "bg-red-500 dark:bg-red-300/10 border-red-500 dark:border-red-300/10 text-red-500",
+					icon: <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>,
 					titleColor: "text-red-900 dark:text-red-100",
 					subtitleColor: "text-red-600 dark:text-red-300",
 					title: "❌ Deployment Failed",
@@ -214,8 +214,8 @@ export function DeploymentControls({
 					buttonDisabled: !isPhase1Complete,
 					buttonVariant: "default" as const,
 					buttonClass: isPhase1Complete 
-						? "bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-700 text-white border-emerald-600 dark:border-emerald-600 hover:scale-105"
-						: "bg-bg-3 dark:bg-bg-3 text-text-tertiary dark:text-text-tertiary border-muted dark:border-muted cursor-not-allowed"
+						? "bg-primary text-primary-foreground hover:bg-primary/90"
+						: "bg-bg-3 dark:bg-bg-3 text-muted-foreground/80 dark:text-muted-foreground/70 border-muted dark:border-muted cursor-not-allowed"
 				};
 			
 			default:
@@ -240,7 +240,7 @@ export function DeploymentControls({
 					<div className="flex items-center gap-3">
 						{/* Enhanced Status Icon with deployment state */}
 						<div className={clsx(
-							"flex-shrink-0 w-4 h-4 rounded border-2 flex items-center justify-center transition-all duration-500",
+							"flex-shrink-0 w-6 h-6 rounded border-1 flex items-center justify-center transition-all duration-500",
 							stateConfig.iconClass
 						)}>
 							{stateConfig.icon}
@@ -267,7 +267,7 @@ export function DeploymentControls({
 							onClick={handleDeploy}
 							disabled={stateConfig.buttonDisabled || isCurrentlyDeploying || isDeployButtonClicked}
 							className={clsx(
-								"h-8 px-4 text-sm font-medium transition-all duration-300 transform",
+								"h-8 px-4 text-sm font-medium transition-all duration-300 transform rounded-sm",
 								stateConfig.buttonClass
 							)}
 						>
@@ -384,8 +384,8 @@ export function DeploymentControls({
 								className={clsx(
 									"h-10 text-sm font-medium transition-all duration-200 shadow-sm",
 									localVisibility === 'private'
-										? "bg-accent hover:bg-accent/90 text-white border-accent hover:shadow-md hover:scale-[1.02]"
-										: "bg-bg-3 hover:bg-bg-4 text-text-primary border-border-primary hover:shadow-sm hover:scale-[1.02]"
+										? "bg-primary hover:bg-primary/90 text-primary-foreground border-primary hover:shadow-md hover:scale-[1.02]"
+										: "bg-bg-3 hover:bg-bg-4 text-foreground border-border-primary hover:shadow-sm hover:scale-[1.02]"
 								)}
 							>
 								{isUpdatingVisibility ? (

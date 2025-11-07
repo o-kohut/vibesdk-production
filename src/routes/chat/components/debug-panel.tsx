@@ -542,11 +542,11 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
         } ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-border-primary bg-gradient-to-r from-muted to-accent">
+        <div className="flex items-center justify-between p-4 border-b border-border-primary bg-gradient-to-r from-bg-4 to-bg-1">
           <div className="flex items-center gap-2">
             <Bug className="w-5 h-5 text-text-primary" />
-            <h3 className="font-semibold text-text-primary">Debug Console</h3>
-            <span className="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded-full">
+            <h3 className="font-semibold text-text-primary whitespace-nowrap">Debug Console</h3>
+            <span className="bg-blue-100 text-blue-700 dark:bg-blue-300/20 dark:text-blue-200 text-sm px-2 py-1 rounded-full">
               {filteredMessages.length}/{messages.length}
             </span>
             {bookmarkedMessages.size > 0 && (
@@ -558,7 +558,7 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
           </div>
           <div className="flex items-center gap-2 flex-wrap justify-end">
             {/* View Mode Toggle */}
-            <div className="flex bg-bg-3 dark:bg-zinc-800 rounded p-0.5">
+            <div className="flex bg-bg-1 dark:bg-zinc-800 rounded p-0.5">
               {[
                 { key: 'list' as const, icon: Bug, label: 'List' },
                 { key: 'analytics' as const, icon: BarChart3, label: 'Analytics' },
@@ -652,7 +652,7 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
                 }}
                 className={`px-3 py-1 text-xs rounded-full transition-all ${
                   filter === key
-                    ? 'bg-blue-500 text-white'
+                    ? 'bg-blue-800/70 text-blue-100 dark:text-white dark:bg-blue-500/40'
                     : 'bg-bg-3 text-text-primary hover:bg-bg-3 border border-border-primary'
                 }`}
               >
@@ -679,8 +679,8 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
                     onClick={() => setWsFilter(key)}
                     className={`px-2 py-1 text-xs rounded transition-all ${
                       wsFilter === key
-                        ? 'bg-purple-600 text-white dark:bg-purple-700'
-                        : 'bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 dark:bg-purple-900/30 dark:text-purple-200 dark:hover:bg-purple-900/40 dark:border-purple-800'
+                        ? 'bg-purple-800/70 text-purple-100 dark:text-white dark:bg-purple-500/40'
+                        : 'bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 dark:bg-purple-900/30 dark:text-purple-200 dark:hover:bg-purple-900/40 dark:border-purple-300/20'
                     }`}
                   >
                     {label} ({count})
@@ -699,48 +699,48 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
               {analyticsData ? (
                 <>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="bg-blue-50 p-4 rounded-lg">
-                      <div className="text-2xl font-bold text-blue-600">{analyticsData.totalMessages}</div>
-                      <div className="text-sm text-blue-800">Total Messages</div>
+                    <div className="bg-blue-50 p-4 rounded-lg dark:bg-blue-300/10 border border-blue-200 dark:border-blue-300/10">
+                      <div className="text-2xl font-bold text-blue-600 dark:text-blue-300">{analyticsData.totalMessages}</div>
+                      <div className="text-sm text-blue-800 dark:text-blue-300/80">Total Messages</div>
                     </div>
-                    <div className="bg-red-50 p-4 rounded-lg">
-                      <div className="text-2xl font-bold text-red-600">{analyticsData.errorRate}%</div>
-                      <div className="text-sm text-red-800">Error Rate</div>
+                    <div className="bg-red-50 p-4 rounded-lg dark:bg-red-300/10 border border-red-200 dark:border-red-300/10">
+                      <div className="text-2xl font-bold text-red-600 dark:text-red-300">{analyticsData.errorRate}%</div>
+                      <div className="text-sm text-red-800 dark:text-red-300/80">Error Rate</div>
                     </div>
-                    <div className="bg-yellow-50 p-4 rounded-lg">
-                      <div className="text-2xl font-bold text-yellow-600">{analyticsData.warningRate}%</div>
-                      <div className="text-sm text-yellow-800">Warning Rate</div>
+                    <div className="bg-yellow-50 p-4 rounded-lg dark:bg-yellow-300/10 border border-yellow-200 dark:border-yellow-300/10">
+                      <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-300">{analyticsData.warningRate}%</div>
+                      <div className="text-sm text-yellow-700 dark:text-yellow-300/80">Warning Rate</div>
                     </div>
-                    <div className="bg-green-50 p-4 rounded-lg">
-                      <div className="text-2xl font-bold text-green-600">{analyticsData.intervals.avg}</div>
-                      <div className="text-sm text-green-800">Avg Interval</div>
+                    <div className="bg-green-50 p-4 rounded-lg dark:bg-green-300/10 border border-green-200 dark:border-green-300/10">
+                      <div className="text-2xl font-bold text-green-600 dark:text-green-300">{analyticsData.intervals.avg}</div>
+                      <div className="text-sm text-green-800 dark:text-green-300/80">Avg Interval</div>
                     </div>
                   </div>
                   
                   {/* Statistical Analysis */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="bg-bg-3/50 p-4 rounded-lg">
+                    <div className="bg-bg-3/50 p-4 rounded-lg dark:bg-gray-300/10 border border-border-primary dark:border-border-primary/10">
                       <h4 className="font-medium text-text-primary mb-2">Response Time Statistics</h4>
-                      <div className="space-y-1 text-sm">
-                        <div>Average: <span className="font-mono">{analyticsData.intervals.avg}</span></div>
-                        <div>Median: <span className="font-mono">{analyticsData.intervals.median}</span></div>
-                        <div>P99: <span className="font-mono">{analyticsData.intervals.p99}</span></div>
+                      <div className="space-y-1 text-sm text-muted-foreground">
+                        <div>Average: <span className="font-mono text-text-primary dark:text-text-primary/80">{analyticsData.intervals.avg}</span></div>
+                        <div>Median: <span className="font-mono text-text-primary dark:text-text-primary/80">{analyticsData.intervals.median}</span></div>
+                        <div>P99: <span className="font-mono text-text-primary dark:text-text-primary/80">{analyticsData.intervals.p99}</span></div>
                       </div>
                     </div>
-                    <div className="bg-purple-50 p-4 rounded-lg">
-                      <h4 className="font-medium text-purple-800 mb-2 flex items-center gap-2">
+                    <div className="bg-purple-50 p-4 rounded-lg dark:bg-purple-500/10 border border-purple-200 dark:border-purple-300/10">
+                      <h4 className="font-medium text-purple-800 dark:text-purple-300/80 mb-2 flex items-center gap-2">
                         <BarChart3 className="w-4 h-4" />
                         WebSocket Activity
                       </h4>
-                      <div className="text-lg font-bold text-purple-600">{analyticsData.wsMessages} messages</div>
-                      <div className="text-sm text-purple-700">Last 24h: {analyticsData.last24h} messages</div>
+                      <div className="text-lg font-bold text-purple-600 dark:text-purple-300">{analyticsData.wsMessages} messages</div>
+                      <div className="text-sm text-purple-700 dark:text-purple-300/80">Last 24h: {analyticsData.last24h} messages</div>
                     </div>
-                    <div className="bg-amber-50 p-4 rounded-lg">
-                      <h4 className="font-medium text-amber-800 mb-2">Performance Score</h4>
-                      <div className="text-2xl font-bold text-amber-600">
+                    <div className="bg-amber-50 p-4 rounded-lg dark:bg-amber-300/10 border border-amber-200 dark:border-amber-300/10">
+                      <h4 className="font-medium text-amber-800 dark:text-amber-300/80 mb-2">Performance Score</h4>
+                      <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">
                         {analyticsData.errorRate === '0' ? '100' : (100 - parseFloat(analyticsData.errorRate)).toFixed(0)}%
                       </div>
-                      <div className="text-sm text-amber-700">System Health</div>
+                      <div className="text-sm text-amber-700 dark:text-amber-300/80">System Health</div>
                     </div>
                   </div>
                   
@@ -750,36 +750,36 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
                     
                     {/* File Generation - Special Enhanced Display */}
                     {analyticsData.operations.fileGeneration.duration.count > 0 && (
-                      <div className="bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-200 rounded-xl p-6">
+                      <div className="bg-gradient-to-br from-purple-50 dark:from-purple-300/10 to-indigo-50 dark:to-indigo-300/10 border border-purple-200 dark:border-purple-300/10 rounded-xl p-6">
                         <div className="flex items-center gap-3 mb-4">
-                          <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
-                          <h5 className="font-bold text-purple-900 text-lg">📝 File Generation Performance</h5>
+                          <div className="w-3 h-3 bg-purple-500 dark:bg-purple-300 rounded-full"></div>
+                          <h5 className="font-bold text-purple-900 dark:text-purple-300 text-lg">📝 File Generation Performance</h5>
                         </div>
                         
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                          <div className="bg-bg-4/70 dark:bg-bg-4/50 rounded-lg p-4 text-center">
-                            <div className="text-2xl font-bold text-purple-600">
+                          <div className="bg-bg-4/70 dark:bg-gray-300/10 rounded-lg p-4 text-center">
+                            <div className="text-2xl font-bold text-purple-600 dark:text-purple-300">
                               {analyticsData.operations.fileGeneration.linesPerSecond.avg.toFixed(1)}
                             </div>
-                            <div className="text-sm text-purple-800">Lines/sec (avg)</div>
+                            <div className="text-sm text-purple-800 dark:text-purple-300/80">Lines/sec (avg)</div>
                           </div>
-                          <div className="bg-bg-4/70 dark:bg-bg-4/50 rounded-lg p-4 text-center">
-                            <div className="text-2xl font-bold text-indigo-600">
+                          <div className="bg-bg-4/70 dark:bg-gray-300/10 rounded-lg p-4 text-center">
+                            <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-300">
                               {(analyticsData.operations.fileGeneration.charsPerSecond.avg / 1000).toFixed(1)}k
                             </div>
-                            <div className="text-sm text-indigo-800">Chars/sec (avg)</div>
+                            <div className="text-sm text-indigo-800 dark:text-indigo-300/80">Chars/sec (avg)</div>
                           </div>
-                          <div className="bg-bg-4/70 dark:bg-bg-4/50 rounded-lg p-4 text-center">
-                            <div className="text-2xl font-bold text-blue-600">
+                          <div className="bg-bg-4/70 dark:bg-gray-300/10 rounded-lg p-4 text-center">
+                            <div className="text-2xl font-bold text-blue-600 dark:text-blue-300">
                               {analyticsData.operations.fileGeneration.totalLines.toLocaleString()}
                             </div>
-                            <div className="text-sm text-blue-800">Total Lines</div>
+                            <div className="text-sm text-blue-800 dark:text-blue-300/80">Total Lines</div>
                           </div>
-                          <div className="bg-bg-4/70 dark:bg-bg-4/50 rounded-lg p-4 text-center">
-                            <div className="text-2xl font-bold text-teal-600">
+                          <div className="bg-bg-4/70 dark:bg-gray-300/10 rounded-lg p-4 text-center">
+                            <div className="text-2xl font-bold text-teal-600 dark:text-teal-300">
                               {analyticsData.operations.fileGeneration.duration.count}
                             </div>
-                            <div className="text-sm text-teal-800">Files Generated</div>
+                            <div className="text-sm text-teal-800 dark:text-teal-300/80">Files Generated</div>
                           </div>
                         </div>
                         
@@ -819,41 +819,65 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
                         .map(([operation, stats]) => {
                           const simpleStats = stats as { avg: number; median: number; p99: number; count: number };
                           const operationConfig = {
-                            phaseGeneration: { icon: '🔄', color: 'green', label: 'Phase Generation' },
-                            cfDeployment: { icon: '☁️', color: 'orange', label: 'CF Deployment' },
-                            runnerDeployment: { icon: '🚀', color: 'blue', label: 'Runner Deployment' }
-                          }[operation] || { icon: '⚙️', color: 'gray', label: operation };
+                            phaseGeneration: { 
+                              icon: '🔄', 
+                              label: 'Phase Generation',
+                              containerClass: 'bg-green-50 dark:bg-green-300/10 border border-green-200 dark:border-green-300/10',
+                              valueClass: 'text-green-600 dark:text-green-300',
+                              labelClass: 'text-green-800 dark:text-green-300/80'
+                            },
+                            cfDeployment: { 
+                              icon: '☁️', 
+                              label: 'CF Deployment',
+                              containerClass: 'bg-orange-50 dark:bg-orange-300/10 border border-orange-200 dark:border-orange-300/10',
+                              valueClass: 'text-orange-600 dark:text-orange-300',
+                              labelClass: 'text-orange-800 dark:text-orange-300/80'
+                            },
+                            runnerDeployment: { 
+                              icon: '🚀', 
+                              label: 'Runner Deployment',
+                              containerClass: 'bg-blue-50 dark:bg-blue-300/10 border border-blue-200 dark:border-blue-300/10',
+                              valueClass: 'text-blue-600 dark:text-blue-300',
+                              labelClass: 'text-blue-800 dark:text-blue-300/80'
+                            }
+                          }[operation] || { 
+                            icon: '⚙️', 
+                            label: operation,
+                            containerClass: 'bg-gray-50 dark:bg-gray-300/10 border border-gray-200 dark:border-gray-300/10',
+                            valueClass: 'text-gray-600 dark:text-gray-300',
+                            labelClass: 'text-gray-800 dark:text-gray-300/80'
+                          };
                           
                           return (
-                            <div key={operation} className={`bg-${operationConfig.color}-50 border border-${operationConfig.color}-200 rounded-lg p-4`}>
+                            <div key={operation} className={`${operationConfig.containerClass} rounded-lg p-4`}>
                               <div className="flex items-center gap-2 mb-3">
                                 <span className="text-lg">{operationConfig.icon}</span>
-                                <h5 className="font-medium text-text-primary">{operationConfig.label}</h5>
+                                <h5 className="font-medium text-foreground">{operationConfig.label}</h5>
                               </div>
                               {simpleStats.count > 0 ? (
                                 <div className="space-y-3">
                                   <div className="text-center">
-                                    <div className={`text-2xl font-bold text-${operationConfig.color}-600`}>
+                                    <div className={`text-2xl font-bold ${operationConfig.valueClass}`}>
                                       {simpleStats.avg > 1000 ? `${(simpleStats.avg/1000).toFixed(1)}s` : `${simpleStats.avg.toFixed(0)}ms`}
                                     </div>
-                                    <div className={`text-sm text-${operationConfig.color}-800`}>Average Duration</div>
+                                    <div className={`text-sm ${operationConfig.labelClass}`}>Average Duration</div>
                                   </div>
                                   <div className="grid grid-cols-2 gap-2 text-xs">
                                     <div>
-                                      <div className="text-text-tertiary">Median</div>
+                                      <div className="text-muted-foreground/80">Median</div>
                                       <div className="font-mono font-medium">{simpleStats.median > 1000 ? `${(simpleStats.median/1000).toFixed(1)}s` : `${simpleStats.median.toFixed(0)}ms`}</div>
                                     </div>
                                     <div>
-                                      <div className="text-text-tertiary">P99</div>
+                                      <div className="text-muted-foreground/80">P99</div>
                                       <div className="font-mono font-medium">{simpleStats.p99 > 1000 ? `${(simpleStats.p99/1000).toFixed(1)}s` : `${simpleStats.p99.toFixed(0)}ms`}</div>
                                     </div>
                                   </div>
                                   <div className="pt-2 border-t border-border-primary text-center">
-                                    <div className="text-text-tertiary text-sm">{simpleStats.count} operations</div>
+                                    <div className="text-muted-foreground/80 text-sm">{simpleStats.count} operations</div>
                                   </div>
                                 </div>
                               ) : (
-                                <div className="text-text-tertiary text-sm text-center py-4">No operations recorded</div>
+                                <div className="text-muted-foreground/80 text-sm text-center py-4">No operations recorded</div>
                               )}
                             </div>
                           );
@@ -876,13 +900,13 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
                   </h4>
                   <div className="space-y-2">
                     {messages.filter(m => bookmarkedMessages.has(m.id)).slice(0, 5).map(msg => (
-                      <div key={msg.id} className="text-sm text-amber-700 truncate">
+                      <div key={msg.id} className="text-sm text-amber-700 dark:text-amber-300/80 truncate">
                         <Clock className="w-3 h-3 inline mr-1" />
                         {new Date(msg.timestamp).toLocaleTimeString()}: {msg.message}
                       </div>
                     ))}
                     {bookmarkedMessages.size > 5 && (
-                      <div className="text-xs text-amber-600">+{bookmarkedMessages.size - 5} more...</div>
+                      <div className="text-xs text-amber-600 dark:text-amber-300/80">+{bookmarkedMessages.size - 5} more...</div>
                     )}
                   </div>
                 </div>
@@ -1053,7 +1077,7 @@ function DebugPanelCore({ messages, onClear, chatSessionId }: DebugPanelProps) {
                       <div>
                         <button
                           onClick={() => toggleExpanded(message.id)}
-                          className="text-xs text-blue-600 hover:text-blue-800 underline"
+                          className="text-xs text-blue-600 dark:text-blue-300/80 hover:text-blue-800 dark:hover:text-blue-300 underline"
                         >
                           {isExpanded ? 'Hide details' : 'Show details'}
                         </button>

@@ -654,7 +654,7 @@ export default function AppView() {
 									variant="outline"
 									size="sm"
 									onClick={() => setIsGitCloneModalOpen(true)}
-									className="gap-2 text-text-primary"
+									className="gap-2 text-foreground"
 								>
 									<GitBranch className="h-4 w-4" />
 									Git Clone
@@ -730,14 +730,14 @@ export default function AppView() {
 					{/* Tab switcher and Git Clone inline */}
 					<div className="flex items-center gap-4">
 						{/* Using proper TabsList and TabsTrigger components */}
-						<TabsList className="inline-flex h-auto w-fit items-center gap-0.5 bg-bg-2 dark:bg-bg-1 rounded-md p-0.5 border border-border-primary/30">
+						<TabsList className="inline-flex h-auto w-fit items-center gap-0.5 bg-bg-2 dark:bg-bg-1 rounded-md p-0.5 border">
 						<TabsTrigger
 							value="preview"
-							className="px-3 py-1.5 rounded text-sm font-medium"
+							className="px-3 py-1.5 rounded text-sm font-medium data-[state=active]:bg-bg-4 dark:data-[state=active]:bg-bg-3 data-[state=active]:text-text-primary data-[state=active]:shadow-sm"
 						>
 							<Eye className={cn(
 								"h-3.5 w-3.5 mr-1.5",
-								activeTab === 'preview' ? 'text-accent' : 'text-accent/60'
+								activeTab === 'preview' ? 'text-primary' : 'text-primary/60'
 							)} />
 							Preview
 						</TabsTrigger>
@@ -895,7 +895,7 @@ export default function AppView() {
 					<TabsContent value="code" className="flex-1">
 						<Card className="flex flex-col" style={{ maxHeight: '600px' }}>
 							<CardHeader>
-								<div className="flex items-center justify-between">
+								<div className="flex items-center justify-between gap-2">
 									<div>
 										<CardTitle>Generated Code</CardTitle>
 										{app?.agentSummary && (

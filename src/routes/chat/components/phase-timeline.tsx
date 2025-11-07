@@ -47,8 +47,8 @@ const StatusLoader = ({ size = 'md', color = 'accent' }: StatusLoaderProps) => {
 	const colorMap = {
 		accent: 'text-accent',
 		blue: 'text-blue-400',
-		orange: 'text-emerald-400',
-		tertiary: 'text-text-tertiary',
+		orange: 'text-emerald-600 dark:text-emerald-400',
+		tertiary: 'text-muted-foreground/80 dark:text-muted-foreground/70',
 		green: 'text-green-500'
 	};
 	return <Loader className={`${sizeClass} animate-spin ${colorMap[color]}`} />;
@@ -59,8 +59,8 @@ const StatusCheck = ({ size = 'md', color = 'green' }: StatusLoaderProps) => {
 	const colorMap = {
 		accent: 'text-accent',
 		blue: 'text-blue-400',
-		orange: 'text-emerald-400',
-		tertiary: 'text-text-tertiary',
+		orange: 'text-emerald-600 dark:text-emerald-400',
+		tertiary: 'text-muted-foreground/80 dark:text-muted-foreground/70',
 		green: 'text-green-500'
 	};
 	return <Check className={`${sizeClass} ${colorMap[color]}`} />;
@@ -512,18 +512,18 @@ export function PhaseTimeline({
                                     {collapsedBarInfo.icon}
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                    <div className="text-sm font-medium text-text-primary truncate">
+                                    <div className="text-sm font-medium text-foreground truncate">
                                         {collapsedBarInfo.text}
                                     </div>
                                     {collapsedBarInfo.subtitle && (
-                                        <div className="text-xs text-text-secondary truncate">
+                                        <div className="text-xs text-muted-foreground truncate">
                                             {collapsedBarInfo.subtitle}
                                         </div>
                                     )}
                                 </div>
                                 {collapsedBarInfo.badge && (
                                     <div className="flex-shrink-0">
-                                        <span className="text-xs font-medium px-2 py-0.5 bg-accent/10 text-accent rounded-full">
+                                        <span className="text-xs font-medium px-2 py-0.5 bg-primary/10 text-primary rounded-full">
                                             {collapsedBarInfo.badge}
                                         </span>
                                     </div>
@@ -535,7 +535,7 @@ export function PhaseTimeline({
                                             handleDeployToCloudflare(chatId);
                                         }}
                                         disabled={!!isDeploying}
-                                        className="ml-2 flex items-center gap-1.5 px-2.5 py-1 bg-accent hover:bg-accent/90 disabled:bg-accent/50 text-white rounded-full text-xs font-medium transition-colors disabled:cursor-not-allowed"
+                                        className="ml-2 flex items-center gap-1.5 px-2.5 py-1 bg-primary hover:bg-primary/90 disabled:bg-primary/50 text-primary-foreground rounded-full text-xs font-medium transition-colors disabled:cursor-not-allowed"
                                         title={isDeploying ? 'Deploying...' : 'Deploy to Cloudflare'}
                                         aria-label={isDeploying ? 'Deploying' : 'Deploy to Cloudflare'}
                                     >
@@ -563,7 +563,7 @@ export function PhaseTimeline({
 											{/* Files List */}
 											{getCurrentPhaseInfo && getCurrentPhaseInfo.files.length > 0 && (
 												<div className="space-y-1">
-													<div className="text-xs font-medium text-text-secondary mb-2">
+													<div className="text-xs font-medium text-muted-foreground mb-2">
 														Files ({getCurrentPhaseInfo.files.length}):
 													</div>
 													<div className="max-h-32 overflow-y-auto">
@@ -578,7 +578,7 @@ export function PhaseTimeline({
 																	<StatusIcon status={file.status} size="sm" />
 																</div>
 																{/* File name offset to the right */}
-																<span className="font-mono text-text-tertiary truncate ml-1">
+																<span className="font-mono text-muted-foreground/80 dark:text-muted-foreground/70 truncate ml-1">
 																	{truncateFilePath(file.path, 35)}
 																</span>
 																{/* Bottom connection line */}
@@ -596,7 +596,7 @@ export function PhaseTimeline({
 																		<div className="w-1.5 h-1.5 rounded-full bg-accent/60" />
 																	</div>
 																</div>
-																<span className="text-text-tertiary ml-1">
+																<span className="text-muted-foreground/80 dark:text-muted-foreground/70 ml-1">
 																	+{getCurrentPhaseInfo.files.length - 5} more files...
 																</span>
 															</div>
@@ -612,7 +612,7 @@ export function PhaseTimeline({
 														e.stopPropagation();
 														scrollToTop();
 													}}
-													className="flex items-center gap-1.5 px-3 py-1.5 bg-bg-2 hover:bg-bg-1 border border-border-primary rounded-lg text-xs font-medium text-text-primary transition-colors"
+													className="flex items-center gap-1.5 px-3 py-1.5 bg-bg-2 hover:bg-bg-1 border border-border-primary rounded-lg text-xs font-medium text-foreground transition-colors"
 												>
 													<ArrowUp className="w-3 h-3" />
 													Scroll to Top
@@ -625,7 +625,7 @@ export function PhaseTimeline({
 															handleDeployToCloudflare(chatId);
 														}}
 														disabled={isDeploying}
-														className="flex items-center gap-1.5 px-3 py-1.5 bg-accent hover:bg-accent/90 disabled:bg-accent/50 text-white rounded-lg text-xs font-medium transition-colors disabled:cursor-not-allowed"
+														className="flex items-center gap-1.5 px-3 py-1.5 bg-primary hover:bg-primary/90 disabled:bg-primary/50 text-primary-foreground rounded-lg text-xs font-medium transition-colors disabled:cursor-not-allowed"
 													>
 														{isDeploying ? (
 															<StatusLoader size="sm" color="accent" />
@@ -681,8 +681,8 @@ export function PhaseTimeline({
 								<span className={clsx(
 									'font-medium',
 									stage.status === 'pending'
-										? 'text-text-tertiary'
-										: 'text-text-secondary'
+										? 'text-muted-foreground/80 dark:text-muted-foreground/70'
+										: 'text-muted-foreground'
 								)}>
 									{stage.title}
 								</span>
@@ -694,7 +694,7 @@ export function PhaseTimeline({
 										animate={{ x: 0 }}
 									>
 										<span className="text-zinc-300 mx-1">&bull;</span>
-										<span className="text-text-tertiary">
+										<span className="text-muted-foreground/80 dark:text-muted-foreground/70">
 											{progress}/{total} phases
 										</span>
 									</motion.div>
@@ -733,10 +733,10 @@ export function PhaseTimeline({
 								<button
 									onClick={() => onViewChange?.('blueprint')}
 									className={clsx(
-										'flex items-start ml-0.5 transition-colors font-mono',
+										'flex items-start ml-0.5 transition-colors font-mono p-2 rounded-md',
 										view === 'blueprint'
 											? 'text-brand underline decoration-dotted'
-											: 'text-text-secondary/80 hover:bg-bg-2/50 hover:text-text-secondary'
+											: 'text-muted-foreground/80 hover:bg-foreground/5 hover:text-muted-foreground'
 									)}
 								>
 									<span className="text-xs text-left truncate">
@@ -761,7 +761,7 @@ export function PhaseTimeline({
 											{/* Phase Implementation Header */}
 											<button
 												onClick={() => (phase.status === 'completed' || phase.status === 'cancelled') && togglePhase(phase.id)}
-												className="flex items-start gap-2 relative z-0 w-full text-left hover:bg-zinc-50/5 rounded px-1 py-1 transition-colors group"
+												className="flex items-start gap-2 relative p-2 z-0 w-full text-left hover:bg-foreground/5 rounded-md transition-colors group"
 												disabled={phase.status !== 'completed' && phase.status !== 'cancelled'}
 											>
 												{/* Expand/Collapse chevron for completed/cancelled phases */}
@@ -787,7 +787,7 @@ export function PhaseTimeline({
 
 												{/* File count badge for collapsed completed/cancelled phases */}
 												{(phase.status === 'completed' || phase.status === 'cancelled') && !expandedPhases.has(phase.id) && (
-													<span className="text-xs text-text-primary/50 bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded flex-shrink-0">
+													<span className="text-xs text-foreground/50 bg-foreground/5 px-1.5 py-0.5 rounded flex-shrink-0">
 														{phase.files.length} files
 													</span>
 												)}
@@ -805,7 +805,7 @@ export function PhaseTimeline({
 															<button
 																key={phaseFile.path}
 																onClick={() => globalFile && onFileClick(globalFile)}
-																className="flex items-start gap-2 py-1 transition-colors font-mono w-full text-left group hover:bg-zinc-50/5 rounded px-2 min-h-0"
+																className="flex items-start gap-2 py-1 transition-colors font-mono w-full text-left group hover:bg-foreground/5 rounded px-2 min-h-0"
 																aria-selected={isFileActive}
 																disabled={!globalFile}
 															>
@@ -841,7 +841,7 @@ export function PhaseTimeline({
 
 																	return (
 																		<span
-																			className="flex-shrink-0 text-text-tertiary text-xs font-mono text-right w-12 ml-2"
+																			className="flex-shrink-0 text-muted-foreground/80 text-xs font-mono text-right w-12 ml-2"
 																			title={`${incrementalLines} lines added in this phase`}
 																		>
 																			+{displayCount}
@@ -871,12 +871,12 @@ export function PhaseTimeline({
 											);
 										} else if (isPreviewDeploying) {
 											return (
-												<div className="space-y-1 relative bg-emerald-50/5 border border-emerald-200/20 rounded-lg p-3">
+												<div className="space-y-1 relative bg-emerald-500/10 dark:bg-emerald-500/20 border border-emerald-200/20 dark:border-emerald-100/20 rounded-lg p-3">
 													<div className="flex items-center gap-2">
 														<StatusLoader size="sm" color="orange" />
-														<span className="text-sm font-medium text-emerald-400">Deploying preview...</span>
+														<span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">Deploying preview...</span>
 													</div>
-													<span className="text-xs text-emerald-300/80 ml-5">Updating your preview environment</span>
+													<span className="text-xs text-emerald-600/80 dark:text-emerald-300/80 ml-5">Updating your preview environment</span>
 												</div>
 											);
 										}
@@ -897,7 +897,7 @@ export function PhaseTimeline({
 											<button
 												key={file.filePath}
 												onClick={() => onFileClick(file)}
-												className="flex items-start gap-2 py-1 font-mono w-full text-left group hover:bg-zinc-50/5 rounded px-2 min-h-0"
+												className="flex items-start gap-2 font-mono w-full text-left group hover:bg-foreground/5 rounded-md p-2 min-h-0"
 											>
 												<span className="flex-shrink-0">
 													{file.isGenerating ? <StatusLoader size="sm" color="accent" /> : <StatusCheck size="sm" color="green" />}
@@ -907,7 +907,7 @@ export function PhaseTimeline({
 														{truncateFilePath(file.filePath)}
 													</span>
 												</div>
-												<span className="flex-shrink-0 text-text-tertiary text-xs font-mono text-right w-12 ml-2">
+												<span className="flex-shrink-0 text-muted-foreground/80 text-xs font-mono text-right w-12 ml-2">
 													+{file.fileContents.split('\n').length}
 												</span>
 											</button>
@@ -928,8 +928,8 @@ export function PhaseTimeline({
 							<div className={clsx(
 								'absolute left-[9.25px] w-px h-full top-2.5 z-10',
 								stage.status === 'completed'
-									? 'bg-accent'
-									: 'bg-text/5'
+									? 'bg-brand/70 dark:bg-brand/50'
+									: 'bg-muted-foreground/15'
 							)} />
 						)}
 					</div>

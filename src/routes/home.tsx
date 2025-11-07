@@ -147,7 +147,7 @@ export default function Home() {
 								const query = textareaRef.current!.value;
 								handleCreateApp(query, agentMode);
 							}}
-							className="flex z-10 flex-col w-full min-h-[150px] bg-bg-3 border rounded-lg shadow-md p-5 transition-all duration-200"
+							className="flex z-10 flex-col w-full min-h-[150px] bg-bg-3 border focus-within:border-primary/50 rounded-lg shadow-md p-5 transition-all duration-200"
 						>
 							<div
 								className={clsx(

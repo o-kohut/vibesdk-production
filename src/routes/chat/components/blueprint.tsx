@@ -13,8 +13,9 @@ export function Blueprint({
 
 	return (
 		<div className={clsx('w-full flex flex-col', className)} {...props}>
-			<div className="bg-accent p-6 rounded-t-xl flex items-center bg-graph-paper">
-				<div className="flex flex-col gap-1">
+			<div className="bg-primary dark:bg-bg-4 p-6 rounded-t-xl flex items-center relative">
+				<div className="absolute dark:opacity-50 mask-t-from-10% inset-0 bg-[linear-gradient(45deg,#ffffff33_25%,transparent_25%,transparent_75%,var(--grid-color)_75%,var(--grid-color)),linear-gradient(-45deg,var(--grid-color)_25%,transparent_25%,transparent_75%,var(--grid-color)_75%,var(--grid-color))] bg-[size:20px_20px] bg-[position:0_0,10px_10px]"></div>
+				<div className="flex flex-col gap-1 relative z-10">
 					<div className="uppercase text-xs tracking-wider text-text-on-brand/90">
 						Blueprint
 					</div>
@@ -23,7 +24,7 @@ export function Blueprint({
 					</div>
 				</div>
 			</div>
-			<div className="flex flex-col px-6 py-4 bg-bg-2 rounded-b-xl space-y-8">
+			<div className="flex flex-col px-6 py-4 bg-bg-2 rounded-b-xl space-y-8 bg-bg-4">
 				{/* Basic Info */}
 				<div className="grid grid-cols-[120px_1fr] gap-4 text-sm">
 					<div className="text-text-50/70 font-mono">Description</div>
