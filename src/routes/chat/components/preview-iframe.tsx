@@ -414,7 +414,7 @@ export const PreviewIframe = forwardRef<HTMLIFrameElement, PreviewIframeProps>(
 					<div className="space-y-3">
 						<button
 							onClick={forceReload}
-							className="flex items-center justify-center gap-2 px-6 py-3 bg-accent hover:bg-accent/90 text-white rounded-lg transition-colors text-sm mx-auto font-medium w-full"
+							className="flex items-center justify-center gap-2 px-6 py-3 bg-primary text-primary-foreground hover:bg-primary/90 rounded-md transition-colors text-sm mx-auto font-medium w-full"
 						>
 							<RefreshCw className="size-4" />
 							Try Again
