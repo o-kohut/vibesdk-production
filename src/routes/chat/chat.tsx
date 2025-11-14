@@ -48,7 +48,7 @@ export default function Chat() {
 	const [searchParams] = useSearchParams();
 	const userQuery = searchParams.get('query');
 	const agentMode = searchParams.get('agentMode') || 'deterministic';
-	
+
 	// Extract images from URL params if present
 	const userImages = useMemo(() => {
 		const imagesParam = searchParams.get('images');
@@ -220,7 +220,7 @@ export default function Chat() {
 
 	const [newMessage, setNewMessage] = useState('');
 	const [showTooltip, setShowTooltip] = useState(false);
-	
+
 	// Word count utilities
 	const MAX_WORDS = 4000;
 	const countWords = (text: string): number => {
@@ -531,11 +531,11 @@ export default function Chat() {
 					layout="position"
 					className="flex-1 shrink-0 flex flex-col basis-0 max-w-xl relative z-10 h-full min-h-0"
 				>
-					<div 
+					<div
 					className={clsx(
 						'flex-1 overflow-y-auto min-h-0 chat-messages-scroll',
 						isDebugging && 'animate-debug-pulse'
-					)} 
+					)}
 					ref={messagesContainerRef}
 				>
 						<div className="pt-5 px-4 pb-4 text-sm flex flex-col gap-5">
@@ -756,7 +756,7 @@ export default function Chat() {
 							onChange={(e) => {
 								const newValue = e.target.value;
 								const newWordCount = countWords(newValue);
-								
+
 								// Only update if within word limit
 								if (newWordCount <= MAX_WORDS) {
 									setNewMessage(newValue);
@@ -1228,7 +1228,7 @@ export default function Chat() {
 					</AlertDialogHeader>
 					<AlertDialogFooter>
 						<AlertDialogCancel>Cancel</AlertDialogCancel>
-						<AlertDialogAction onClick={handleResetConversation} className="bg-bg-2 hover:bg-bg-2/80 text-text-primary">
+						<AlertDialogAction onClick={handleResetConversation} className="bg-primary text-primary-foreground hover:bg-primary/90">
 							Reset
 						</AlertDialogAction>
 					</AlertDialogFooter>
