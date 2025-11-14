@@ -580,7 +580,7 @@ export class DeploymentManager extends BaseAgentService implements IDeploymentMa
         
         const createResponse = await client.createInstance(
             templateName,
-            `v1-${projectName}`,
+            projectName,
             undefined,
             localEnvVars
         );
