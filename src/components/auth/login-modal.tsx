@@ -480,14 +480,16 @@ export function LoginModal({
 								<p className="text-center text-xs text-text-tertiary">
 									By continuing, you agree to our{' '}
 									<a
-										href="#"
+										href="https://support.crowdin.com/terms/"
+										target="_blank"
 										className="underline hover:text-text-primary"
 									>
 										Terms of Service
 									</a>{' '}
 									and{' '}
 									<a
-										href="#"
+										href="https://support.crowdin.com/privacy-policy/"
+										target="_blank"
 										className="underline hover:text-text-primary"
 									>
 										Privacy Policy
