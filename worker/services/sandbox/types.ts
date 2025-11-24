@@ -29,7 +29,7 @@ export interface WranglerConfigValidationResult {
     errors?: string[];
 }
 
-export interface CrowdinOAuthProvisioningResult {
+export interface AppSecretsProvisioningResult {
     success: boolean;
     localEnvVars?: Record<string, string>;
 }

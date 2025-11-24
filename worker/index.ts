@@ -10,6 +10,7 @@ import { proxyToAiGateway } from './services/aigateway-proxy/controller';
 import { isOriginAllowed } from './config/security';
 import { proxyToSandbox } from './services/sandbox/request-handler';
 import { handleGitProtocolRequest, isGitProtocolRequest } from './api/handlers/git-protocol';
+import { dispatchScheduledToApps } from './utils/scheduledDispatcher';
 
 // Durable Object and Service exports
 export { UserAppSandboxService, DeployerService } from './services/sandbox/sandboxSdkClient';
@@ -183,6 +184,13 @@ const worker = {
 		}
 
 		return new Response('Not Found', { status: 404 });
+	},
+
+	async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+		logger.info(`Cron triggered: ${controller.cron}`);
+		
+		// Dispatch scheduled event to all deployed user apps
+		ctx.waitUntil(dispatchScheduledToApps(controller.cron, env));
 	},
 } satisfies ExportedHandler<Env>;
 

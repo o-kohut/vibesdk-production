@@ -472,6 +472,7 @@ class SetupManager {
 		// Generate or preserve required secrets
 		devVars.JWT_SECRET = this.existingConfig.JWT_SECRET || this.generateRandomSecret(64);
 		devVars.WEBHOOK_SECRET = this.existingConfig.WEBHOOK_SECRET || this.generateRandomSecret(32);
+		devVars.SCHEDULED_SECRET = this.existingConfig.SCHEDULED_SECRET || this.generateRandomSecret(32);
 		devVars.USE_TUNNEL_FOR_PREVIEW = 'true';
 
 		// Auto-set AI Gateway token if using AI Gateway
@@ -1214,7 +1215,7 @@ class SetupManager {
 			'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'GITHUB_CLIENT_ID', 'GITHUB_CLIENT_SECRET',
 			'CROWDIN_CLIENT_ID', 'CROWDIN_CLIENT_SECRET', 'CROWDIN_OAUTH_MANAGER_CLIENT_ID', 'CROWDIN_OAUTH_MANAGER_CLIENT_SECRET',
 			'GITHUB_EXPORTER_CLIENT_ID', 'GITHUB_EXPORTER_CLIENT_SECRET',
-			'JWT_SECRET', 'WEBHOOK_SECRET'
+			'JWT_SECRET', 'WEBHOOK_SECRET', 'SCHEDULED_SECRET'
 		]);
 
 		// Collect unmanaged variables to preserve (anything not in worker config or setup managed)
@@ -1295,6 +1296,7 @@ class SetupManager {
 		content += '# Required secrets\n';
 		content += `JWT_SECRET="${this.config.devVars.JWT_SECRET}"\n`;
 		content += `WEBHOOK_SECRET="${this.config.devVars.WEBHOOK_SECRET}"\n`;
+		content += `SCHEDULED_SECRET="${this.config.devVars.SCHEDULED_SECRET}"\n`;
 		if (this.config.devVars.USE_TUNNEL_FOR_PREVIEW) {
 			content += `USE_TUNNEL_FOR_PREVIEW="${this.config.devVars.USE_TUNNEL_FOR_PREVIEW}"\n`;
 		}
@@ -1361,7 +1363,7 @@ class SetupManager {
 			'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'GITHUB_CLIENT_ID', 'GITHUB_CLIENT_SECRET',
 			'CROWDIN_CLIENT_ID', 'CROWDIN_CLIENT_SECRET', 'CROWDIN_OAUTH_MANAGER_CLIENT_ID', 'CROWDIN_OAUTH_MANAGER_CLIENT_SECRET',
 			'GITHUB_EXPORTER_CLIENT_ID', 'GITHUB_EXPORTER_CLIENT_SECRET',
-			'JWT_SECRET', 'WEBHOOK_SECRET'
+			'JWT_SECRET', 'WEBHOOK_SECRET', 'SCHEDULED_SECRET'
 			// Note: USE_TUNNEL_FOR_PREVIEW is intentionally excluded - it's dev-only
 		]);
 
@@ -1427,6 +1429,7 @@ class SetupManager {
 		content += '# Required secrets\n';
 		content += `JWT_SECRET="${this.config.prodVars.JWT_SECRET}"\n`;
 		content += `WEBHOOK_SECRET="${this.config.prodVars.WEBHOOK_SECRET}"\n`;
+		content += `SCHEDULED_SECRET="${this.config.prodVars.SCHEDULED_SECRET}"\n`;
 
 		writeFileSync(prodVarsPath, content, 'utf-8');
 		console.log('✅ .prod.vars file created successfully for production deployment');

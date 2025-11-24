@@ -39,7 +39,7 @@ import {
 import { generateId } from '../../utils/idGenerator';
 import { ResourceProvisioner } from './resourceProvisioner';
 import { TemplateParser } from './templateParser';
-import { ResourceProvisioningResult, CrowdinOAuthProvisioningResult } from './types';
+import { ResourceProvisioningResult, AppSecretsProvisioningResult } from './types';
 import { CrowdinResourceProvisioner } from '../crowdin/crowdinResourceProvisioner';
 import { getPreviewDomain } from '../../utils/urls';
 import { isDev } from 'worker/utils/envs'
@@ -799,21 +799,21 @@ export class SandboxSdkClient extends BaseSandboxService {
     }
 
     /**
-     * Provisions Crowdin OAuth clients for both development and production environments
+     * Provisions app secrets including Crowdin OAuth clients and platform secrets.
      */
-    private async provisionCrowdinOAuth(
+    private async provisionAppSecrets(
         instanceId: string,
         projectName: string,
         previewURL: string,
         localEnvVars?: Record<string, string>
-    ): Promise<CrowdinOAuthProvisioningResult> {
+    ): Promise<AppSecretsProvisioningResult> {
         try {
             const session = await this.getInstanceSession(instanceId);
 
             // Read wrangler.jsonc file using absolute path
             const wranglerFile = await session.readFile(`/workspace/${instanceId}/wrangler.jsonc`);
             if (!wranglerFile.success) {
-                this.logger.info(`No wrangler.jsonc found for ${instanceId}, skipping Crowdin OAuth provisioning`);
+                this.logger.info(`No wrangler.jsonc found for ${instanceId}, skipping app secrets provisioning`);
                 return {
                     success: true,
                     localEnvVars,
@@ -826,7 +826,7 @@ export class SandboxSdkClient extends BaseSandboxService {
             try {
                 crowdinProvisioner = new CrowdinResourceProvisioner(this.logger, env, this.userId);
             } catch (error) {
-                this.logger.warn(`Cannot initialize Crowdin OAuth provisioner: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                this.logger.warn(`Cannot initialize Crowdin resource provisioner: ${error instanceof Error ? error.message : 'Unknown error'}`);
                 return {
                     success: false,
                     localEnvVars,
@@ -862,21 +862,23 @@ export class SandboxSdkClient extends BaseSandboxService {
             const updatedLocalEnvVars = {
                 ...(localEnvVars || {}),
                 URL: previewURL,
-                CROWDIN_CLIENT_ID: devOAuthResult.clientId!,
-                CROWDIN_CLIENT_SECRET: devOAuthResult.clientSecret!
+                CROWDIN_CLIENT_ID: devOAuthResult.clientId,
+                CROWDIN_CLIENT_SECRET: devOAuthResult.clientSecret,
+                SCHEDULED_SECRET: env.SCHEDULED_SECRET,
             };
 
             // Replace placeholders in JSONC file (preserves comments and formatting)
             let wranglerUpdated = false;
             let updatedWranglerContent = wranglerFile.content
-                .replace(/\{\{CROWDIN_CLIENT_ID\}\}/g, prodOAuthResult.clientId!)
-                .replace(/\{\{CROWDIN_CLIENT_SECRET\}\}/g, prodOAuthResult.clientSecret!);
+                .replace(/\{\{CROWDIN_CLIENT_ID\}\}/g, prodOAuthResult.clientId)
+                .replace(/\{\{CROWDIN_CLIENT_SECRET\}\}/g, prodOAuthResult.clientSecret)
+                .replace(/\{\{SCHEDULED_SECRET\}\}/g, env.SCHEDULED_SECRET);
 
             const writeResult = await session.writeFile(`/workspace/${instanceId}/wrangler.jsonc`, updatedWranglerContent);
 
             if (writeResult.success) {
                 wranglerUpdated = true;
-                this.logger.info('Updated wrangler.jsonc with production OAuth credentials');
+                this.logger.info('Updated wrangler.jsonc with production app secrets');
             } else {
                 this.logger.error(`Failed to update wrangler.jsonc for ${instanceId}`);
             }
@@ -886,7 +888,7 @@ export class SandboxSdkClient extends BaseSandboxService {
                 localEnvVars: updatedLocalEnvVars,
             };
         } catch (error) {
-            this.logger.warn(`Failed to provision Crowdin OAuth clients: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            this.logger.warn(`Failed to provision app secrets: ${error instanceof Error ? error.message : 'Unknown error'}`);
             return {
                 success: false,
                 localEnvVars,
@@ -1038,11 +1040,11 @@ export class SandboxSdkClient extends BaseSandboxService {
                 previewURL = tunnelURL;
             }
 
-            // Always provision Crowdin OAuth clients (both dev and prod)
-            const oauthProvisioningResult = await this.provisionCrowdinOAuth(instanceId, projectName, previewURL, localEnvVars);
-            localEnvVars = oauthProvisioningResult.localEnvVars;
-            if (!oauthProvisioningResult.success) {
-                this.logger.warn(`Crowdin OAuth failed to provision for ${instanceId}, but continuing setup process`);
+            // Provision app secrets (Crowdin OAuth clients and platform secrets)
+            const secretsProvisioningResult = await this.provisionAppSecrets(instanceId, projectName, previewURL, localEnvVars);
+            localEnvVars = secretsProvisioningResult.localEnvVars;
+            if (!secretsProvisioningResult.success) {
+                this.logger.warn(`App secrets failed to provision for ${instanceId}, but continuing setup process`);
             }
 
             // Store wrangler.jsonc configuration in KV after resource provisioning
