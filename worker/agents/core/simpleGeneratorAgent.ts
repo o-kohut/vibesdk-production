@@ -290,6 +290,33 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
         return this.state;
     }
 
+    /**
+     * Initialize a forked agent after cloning
+     * This should be called after setState() when creating a forked agent
+     */
+    async initializeFork(): Promise<void> {
+        // Ensure state is migrated for any previous versions
+        this.migrateStateIfNeeded();
+
+        // migrate overwritten package.jsons
+        const oldPackageJson = this.fileManager.getFile('package.json')?.fileContents || this.state.lastPackageJson;
+        if (oldPackageJson) {
+            const packageJson = customizePackageJson(oldPackageJson, this.state.projectName);
+            this.fileManager.saveGeneratedFiles([
+                {
+                    filePath: 'package.json',
+                    fileContents: packageJson,
+                    filePurpose: 'Project configuration file'
+                }
+            ], 'chore: fix overwritten package.json');
+        }
+
+        // Full initialization for read-write operations
+        await this.gitInit();
+        // Fill the template cache
+        await this.ensureTemplateDetails();
+    }
+
     private async initializeAsync(): Promise<void> {
         try {
             const [, setupCommands] = await Promise.all([

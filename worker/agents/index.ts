@@ -89,6 +89,8 @@ export async function cloneAgent(env: Env, agentId: string, newUserId: string) :
     };
 
     await newAgent.setState(newState);
+    await newAgent.initializeFork();
+    
     return {newAgentId, newAgent};
 }
 
