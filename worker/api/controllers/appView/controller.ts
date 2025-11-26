@@ -140,6 +140,10 @@ export class AppViewController extends BaseController {
                 return AppViewController.createErrorResponse<ForkAppData>('App not found', 404);
             }
 
+            if (originalApp.status !== 'completed') {
+                return AppViewController.createErrorResponse<ForkAppData>('Cannot fork app that is still generating', 400);
+            }
+
             // Duplicate agent state first
             try {
                 const { newAgentId } = await cloneAgent(env, appId, user.id);
