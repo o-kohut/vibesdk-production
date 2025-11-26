@@ -2,7 +2,7 @@
 import { SmartCodeGeneratorAgent } from './core/smartGeneratorAgent';
 import { getAgentByName } from 'agents';
 import { CodeGenState } from './core/state';
-import { generateId } from '../utils/idGenerator';
+import { generateId, generateNanoId } from '../utils/idGenerator';
 import { StructuredLogger } from '../logger';
 import { InferenceContext, ModelConfig } from './inferutils/config.types';
 import { SandboxSdkClient } from '../services/sandbox/sandboxSdkClient';
@@ -12,6 +12,7 @@ import { TemplateSelection } from './schemas';
 import type { ImageAttachment } from '../types/image-attachment';
 import { BaseSandboxService } from 'worker/services/sandbox/BaseSandboxService';
 import { ModelConfigService } from '../database/services/ModelConfigService';
+import { generateProjectName } from './utils/templateCustomizer';
 
 export async function getAgentStub(env: Env, agentId: string) : Promise<DurableObjectStub<SmartCodeGeneratorAgent>> {
     return getAgentByName<Env, SmartCodeGeneratorAgent>(env.CodeGenObject, agentId);
@@ -68,6 +69,11 @@ export async function cloneAgent(env: Env, agentId: string, newUserId: string) :
     };
 
     const originalState = await agentInstance.getFullState() as CodeGenState;
+    const newProjectName = generateProjectName(
+        originalState.blueprint?.projectName || originalState.templateName,
+        generateNanoId(),
+        20
+    );
     const newState = {
         ...originalState,
         sessionId: newAgentId,
@@ -79,6 +85,7 @@ export async function cloneAgent(env: Env, agentId: string, newUserId: string) :
         // latestScreenshot: undefined,
         clientReportedErrors: [],
         inferenceContext: newInferenceContext,
+        projectName: newProjectName,
     };
 
     await newAgent.setState(newState);
