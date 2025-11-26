@@ -245,8 +245,7 @@ const StatsDisplay = ({ stats }: { stats: StatsData }) => (
 			value={stats.starCount || 0}
 			highlighted={stats.userStarred}
 		/>
-		{/* Fork functionality temporarily removed - showing view count instead */}
-		{/* <StatItem icon={STATS_ICONS.forkCount} value={stats.forkCount || 0} /> */}
+		<StatItem icon={STATS_ICONS.forkCount} value={stats.forkCount || 0} />
 		<StatItem icon={STATS_ICONS.viewCount} value={stats.viewCount || 0} />
 	</div>
 );

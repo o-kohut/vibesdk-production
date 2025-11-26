@@ -56,7 +56,8 @@ import type{
     CodeGenArgs,
     AgentPreviewResponse,
     PlatformStatusData,
-    RateLimitError
+    RateLimitError,
+    ForkAppData
 } from '@/api-types';
 import {
     
@@ -266,7 +267,7 @@ class ApiClient {
 		if (endpoint.includes('/api/agent')) return 'to create applications';
 		if (endpoint.includes('/favorite')) return 'to favorite this app';
 		if (endpoint.includes('/star')) return 'to star this app';
-		// if (endpoint.includes('/fork')) return 'to fork this app';
+		if (endpoint.includes('/fork')) return 'to fork this app';
 		// if (endpoint.includes('/apps')) return 'to access your apps';
 		if (endpoint.includes('/profile')) return 'to access your profile';
 		if (endpoint.includes('/settings')) return 'to access settings';
@@ -542,15 +543,14 @@ class ApiClient {
 		});
 	}
 
-	// /**
-	//  * Fork an app
-	//  */
-    // DISABLED: Has been disabled for initial alpha release, for security reasons
-	// async forkApp(appId: string): Promise<ApiResponse<ForkAppData>> {
-	// 	return this.request<ForkAppData>(`/api/apps/${appId}/fork`, {
-	// 		method: 'POST',
-	// 	});
-	// }
+	/**
+	 * Fork an app
+	 */
+	async forkApp(appId: string): Promise<ApiResponse<ForkAppData>> {
+		return this.request<ForkAppData>(`/api/apps/${appId}/fork`, {
+			method: 'POST',
+		});
+	}
 
 	// ===============================
 	// User API Methods

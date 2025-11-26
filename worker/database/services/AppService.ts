@@ -545,7 +545,7 @@ export class AppService extends BaseService {
         // Use 'fresh' strategy for user-specific queries for consistency
         const userReadDb = userId ? this.getReadDb('fresh') : readDb;
         
-        const [viewCount, starCount, isFavorite, userHasStarred] = await Promise.all([
+        const [viewCount, starCount, forkCount, isFavorite, userHasStarred] = await Promise.all([
             // View count
             readDb
                 .select({ count: sql<number>`count(*)` })
@@ -559,6 +559,14 @@ export class AppService extends BaseService {
                 .select({ count: sql<number>`count(*)` })
                 .from(schema.stars)
                 .where(eq(schema.stars.appId, appId))
+                .get()
+                .then(r => r?.count || 0),
+            
+            // Fork count
+            readDb
+                .select({ count: sql<number>`count(*)` })
+                .from(schema.apps)
+                .where(eq(schema.apps.parentAppId, appId))
                 .get()
                 .then(r => r?.count || 0),
             
@@ -590,10 +598,61 @@ export class AppService extends BaseService {
             userName: appResult.userName,
             userAvatar: appResult.userAvatar,
             starCount,
+            forkCount,
             userStarred: userHasStarred,
             userFavorited: isFavorite,
             viewCount
         };
+    }
+
+    /**
+     * Get app for forking with permission checks
+     * Single query with built-in ownership/visibility validation
+     */
+    async getAppForFork(appId: string, userId: string): Promise<{ app: schema.App | null; canFork: boolean }> {
+        // Use read replica for fork permission checks
+        const readDb = this.getReadDb('fast');
+        const app = await readDb
+            .select()
+            .from(schema.apps)
+            .where(eq(schema.apps.id, appId))
+            .get();
+
+        if (!app) {
+            return { app: null, canFork: false };
+        }
+
+        // Check visibility permissions (same logic as original controller)
+        const canFork = app.visibility === 'public' || app.userId === userId;
+
+        return { app, canFork };
+    }
+
+    /**
+     * Create forked app using same patterns as createSimpleApp
+     */
+    async createForkedApp(originalApp: schema.App, newAgentId: string, userId: string): Promise<schema.App> {
+        const now = new Date();
+        
+        const [forkedApp] = await this.database
+            .insert(schema.apps)
+            .values({
+                id: newAgentId,
+                userId: userId,
+                title: originalApp.title,
+                description: originalApp.description,
+                originalPrompt: originalApp.originalPrompt,
+                finalPrompt: originalApp.finalPrompt,
+                framework: originalApp.framework,
+                visibility: 'private', // Forks start as private
+                status: 'completed', // Forked apps start as completed
+                parentAppId: originalApp.id,
+                createdAt: now,
+                updatedAt: now
+            })
+            .returning();
+
+        return forkedApp;
     }
 
     /**

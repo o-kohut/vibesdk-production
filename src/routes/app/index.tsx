@@ -23,6 +23,7 @@ import {
 	Trash2,
 	Github,
 	GitBranch,
+	Shuffle,
 } from 'lucide-react';
 import { MonacoEditor } from '@/components/monaco-editor/monaco-editor';
 import { getFileType } from '@/utils/string';
@@ -220,35 +221,35 @@ export default function AppView() {
 				},
 				errorMessage: 'Failed to update star',
 			},
-			// fork: {
-			// 	action: 'fork',
-			// 	context: 'to remix this app',
-			// 	handler: async () => {
-			// 		if (!app) return;
-			// 		const response = await apiClient.forkApp(app.id);
+			fork: {
+				action: 'fork',
+				context: 'to fork this app',
+				handler: async () => {
+					if (!app) return;
+					const response = await apiClient.forkApp(app.id);
 
-			// 		if (response.success && response.data) {
-			// 			toast.success(
-			// 				response.data.message ||
-			// 					'App remixed successfully!',
-			// 			);
+					if (response.success && response.data) {
+						toast.success(
+							response.data.message ||
+								'App forked successfully!',
+						);
 
-			// 			// Emit app-created event for sidebar updates
-			// 			appEvents.emitAppCreated(response.data.forkedAppId, {
-			// 				title: `${app.title} (Remix)`,
-			// 				description: app.description || undefined,
-			// 				isForked: true,
-			// 			});
+						// Emit app-created event for sidebar updates
+						appEvents.emitAppCreated(response.data.forkedAppId, {
+							title: app.title,
+							description: app.description || undefined,
+							isForked: true,
+						});
 
-			// 			navigate(`/chat/${response.data.forkedAppId}`);
-			// 		} else {
-			// 			throw new Error(
-			// 				response.error?.message || 'Failed to remix app',
-			// 			);
-			// 		}
-			// 	},
-			// 	errorMessage: 'Failed to remix app',
-			// },
+						navigate(`/chat/${response.data.forkedAppId}`);
+					} else {
+						throw new Error(
+							response.error?.message || 'Failed to fork app',
+						);
+					}
+				},
+				errorMessage: 'Failed to fork app',
+			},
 		}),
 		[app],
 	);
@@ -300,10 +301,10 @@ export default function AppView() {
 		() => createAuthenticatedHandler('star'),
 		[createAuthenticatedHandler],
 	);
-	// const handleFork = useMemo(
-	// 	() => createAuthenticatedHandler('fork'),
-	// 	[createAuthenticatedHandler],
-	// );
+	const handleFork = useMemo(
+		() => createAuthenticatedHandler('fork'),
+		[createAuthenticatedHandler],
+	);
 
 	// Handle pending actions after OAuth redirect
 	const executePendingAction = useCallback(
@@ -603,18 +604,14 @@ export default function AppView() {
 									</>
 								)
                                 : (
-									<>
-										{/*
-										<Button
-											size="sm"
-											variant="outline"
-											onClick={handleFork}
-										>
-											<Shuffle className="h-4 w-4" />
-											Remix
-										</Button>
-										*/}
-									</>
+									<Button
+										size="sm"
+										variant="outline"
+										onClick={handleFork}
+									>
+										<Shuffle className="h-4 w-4" />
+										Fork
+									</Button>
 								)
                                 }
 								<Button
@@ -711,14 +708,18 @@ export default function AppView() {
 										: 'recently'}
 								</span>
 							</div>
-							<div className="flex items-center gap-2">
-								<Eye className="h-4 w-4" />
-								<span>{app.viewCount || 0}</span>
-							</div>
-							<div className="flex items-center gap-2">
-								<Star className="h-4 w-4" />
-								<span>{app.starCount || 0}</span>
-							</div>
+						<div className="flex items-center gap-2">
+							<Eye className="h-4 w-4" />
+							<span>{app.viewCount || 0}</span>
+						</div>
+						<div className="flex items-center gap-2">
+							<Star className="h-4 w-4" />
+							<span>{app.starCount || 0}</span>
+						</div>
+						<div className="flex items-center gap-2">
+							<Shuffle className="h-4 w-4" />
+							<span>{app.forkCount || 0}</span>
+						</div>
 						</div>
 					</div>
 				</div>
