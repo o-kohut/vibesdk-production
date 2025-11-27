@@ -104,4 +104,5 @@ export const DEFAULT_RATE_INCREMENTS_FOR_MODELS: Record<AIModels | string, numbe
 	[AIModels.GEMINI_2_5_PRO] : 4,
 	[AIModels.GEMINI_2_5_PRO_PREVIEW_05_06] : 4,
 	[AIModels.GEMINI_2_5_PRO_PREVIEW_06_05] : 4,
+	[AIModels.GEMINI_3_PRO_PREVIEW] : 4,
 };
