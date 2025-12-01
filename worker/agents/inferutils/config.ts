@@ -116,26 +116,26 @@ const PLATFORM_AGENT_CONFIG: AgentConfig = {
 const DEFAULT_AGENT_CONFIG: AgentConfig = {
     ...COMMON_AGENT_CONFIGS,
     blueprint: {
-        name: AIModels.GEMINI_2_5_PRO,
+        name: AIModels.GEMINI_3_PRO_PREVIEW,
         reasoning_effort: 'medium',
         max_tokens: 64000,
         fallbackModel: AIModels.GEMINI_2_5_FLASH,
         temperature: 0.7,
     },
     projectSetup: {
-        name: AIModels.GEMINI_2_5_PRO,
+        name: AIModels.GEMINI_3_PRO_PREVIEW,
         ...SHARED_IMPLEMENTATION_CONFIG,
     },
     phaseGeneration: {
-        name: AIModels.GEMINI_2_5_PRO,
+        name: AIModels.GEMINI_3_PRO_PREVIEW,
         ...SHARED_IMPLEMENTATION_CONFIG,
     },
     firstPhaseImplementation: {
-        name: AIModels.GEMINI_2_5_PRO,
+        name: AIModels.GEMINI_3_PRO_PREVIEW,
         ...SHARED_IMPLEMENTATION_CONFIG,
     },
     phaseImplementation: {
-        name: AIModels.GEMINI_2_5_PRO,
+        name: AIModels.GEMINI_3_PRO_PREVIEW,
         ...SHARED_IMPLEMENTATION_CONFIG,
     },
     conversationalResponse: {
@@ -146,14 +146,14 @@ const DEFAULT_AGENT_CONFIG: AgentConfig = {
         fallbackModel: AIModels.GEMINI_2_5_PRO,
     },
     deepDebugger: {
-        name: AIModels.GEMINI_2_5_PRO,
+        name: AIModels.GEMINI_3_PRO_PREVIEW,
         reasoning_effort: 'high',
         max_tokens: 8000,
         temperature: 0.5,
         fallbackModel: AIModels.GEMINI_2_5_FLASH,
     },
     fileRegeneration: {
-        name: AIModels.GEMINI_2_5_PRO,
+        name: AIModels.GEMINI_3_PRO_PREVIEW,
         reasoning_effort: 'low',
         max_tokens: 32000,
         temperature: 0,
