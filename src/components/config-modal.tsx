@@ -24,14 +24,14 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { apiClient } from '@/lib/api-client';
 import { ByokApiKeysModal } from './byok-api-keys-modal';
-import type { 
-  ModelConfig, 
-  UserModelConfigWithMetadata, 
-  ModelConfigUpdate, 
+import type {
+  ModelConfig,
+  UserModelConfigWithMetadata,
+  ModelConfigUpdate,
   AIModels,
-  ByokProvidersData
+  ByokProvidersData,
+  AgentDisplayConfig
 } from '@/api-types';
-import type { AgentDisplayConfig } from './model-config-tabs';
 
 interface ConfigModalProps {
   isOpen: boolean;
@@ -56,7 +56,7 @@ const getProviderFromModel = (modelName: string): string => {
 const hasUserKeyForModel = (modelName: string, byokProviders: Array<{ provider: string; hasValidKey: boolean }>): boolean => {
   const provider = getProviderFromModel(modelName);
   if (!provider) return false;
-  
+
   return byokProviders.some(p => p.provider === provider && p.hasValidKey);
 };
 
@@ -98,7 +98,6 @@ export function ConfigModal({
   // Form state
   const [formData, setFormData] = useState({
     modelName: userConfig?.name || 'default',
-    maxTokens: userConfig?.max_tokens?.toString() || '',
     temperature: userConfig?.temperature?.toString() || '',
     reasoningEffort: userConfig?.reasoning_effort || 'default',
     fallbackModel: userConfig?.fallbackModel || 'default'
@@ -107,7 +106,7 @@ export function ConfigModal({
   // UI state
   const [hasChanges, setHasChanges] = useState(false);
   const [byokModalOpen, setByokModalOpen] = useState(false);
-  
+
   // Modal lifecycle tracking
   const [isInitialOpen, setIsInitialOpen] = useState(false);
 
@@ -115,11 +114,12 @@ export function ConfigModal({
   const [byokData, setByokData] = useState<ByokProvidersData | null>(null);
   const [loadingByok, setLoadingByok] = useState(false);
 
-  // Load BYOK data
+  // Load BYOK data (filtered by agent constraints)
   const loadByokData = async () => {
     try {
       setLoadingByok(true);
-      const response = await apiClient.getByokProviders();
+      // Pass agent key to get constraint-filtered models
+      const response = await apiClient.getByokProviders(agentConfig.key);
       if (response.success && response.data) {
         setByokData(response.data);
       }
@@ -136,7 +136,6 @@ export function ConfigModal({
       // First time opening - reset everything and load data
       setFormData({
         modelName: userConfig?.name || 'default',
-        maxTokens: userConfig?.max_tokens?.toString() || '',
         temperature: userConfig?.temperature?.toString() || '',
         reasoningEffort: userConfig?.reasoning_effort || 'default',
         fallbackModel: userConfig?.fallbackModel || 'default'
@@ -162,12 +161,11 @@ export function ConfigModal({
   useEffect(() => {
     const originalFormData = {
       modelName: userConfig?.name || 'default',
-      maxTokens: userConfig?.max_tokens?.toString() || '',
       temperature: userConfig?.temperature?.toString() || '',
       reasoningEffort: userConfig?.reasoning_effort || 'default',
       fallbackModel: userConfig?.fallbackModel || 'default'
     };
-    
+
     setHasChanges(JSON.stringify(formData) !== JSON.stringify(originalFormData));
   }, [formData, userConfig]);
 
@@ -177,7 +175,7 @@ export function ConfigModal({
 
     const models: { value: string; label: string; provider: string; hasUserKey: boolean; byokAvailable: boolean }[] = [];
     const processedModels = new Set<string>();
-    
+
     // First, add all BYOK models (they have BYOK capability)
     Object.values(byokData.modelsByProvider).forEach(providerModels => {
       providerModels.forEach(model => {
@@ -185,7 +183,7 @@ export function ConfigModal({
         if (!processedModels.has(modelStr)) {
           const provider = getProviderFromModel(modelStr);
           const hasUserKey = hasUserKeyForModel(modelStr, byokData.providers);
-          
+
           models.push({
             value: modelStr,
             label: getModelDisplayName(modelStr),
@@ -197,7 +195,7 @@ export function ConfigModal({
         }
       });
     });
-    
+
     // Then, add platform-only models (no BYOK capability)
     byokData.platformModels.forEach(model => {
       const modelStr = model as string;
@@ -212,28 +210,28 @@ export function ConfigModal({
         processedModels.add(modelStr);
       }
     });
-    
+
     return models.sort((a, b) => a.label.localeCompare(b.label));
   }, [byokData]);
 
   // Get current model's BYOK status
   const selectedModelInfo = useMemo(() => {
-    const currentModel = formData.modelName && formData.modelName !== 'default' 
-      ? formData.modelName 
+    const currentModel = formData.modelName && formData.modelName !== 'default'
+      ? formData.modelName
       : '';
-      
+
     if (!currentModel || !byokData) {
       return { hasUserKey: false, provider: '', requiresBYOK: false, isPlatformModel: true };
     }
-    
+
     // Check if this is a BYOK-capable model
-    const isByokModel = Object.values(byokData.modelsByProvider).some(providerModels => 
+    const isByokModel = Object.values(byokData.modelsByProvider).some(providerModels =>
       providerModels.some(model => model === currentModel)
     );
-    
+
     const provider = getProviderFromModel(currentModel);
     const hasUserKey = hasUserKeyForModel(currentModel, byokData.providers);
-    
+
     return {
       hasUserKey,
       provider,
@@ -246,7 +244,6 @@ export function ConfigModal({
   const buildCurrentConfig = (): ModelConfigUpdate => {
     return {
       ...(formData.modelName !== 'default' && { modelName: formData.modelName }),
-      ...(formData.maxTokens && { maxTokens: parseInt(formData.maxTokens) }),
       ...(formData.temperature && { temperature: parseFloat(formData.temperature) }),
       ...(formData.reasoningEffort !== 'default' && { reasoningEffort: formData.reasoningEffort }),
       ...(formData.fallbackModel !== 'default' && { fallbackModel: formData.fallbackModel }),
@@ -289,18 +286,30 @@ export function ConfigModal({
             <Settings className="h-5 w-5" />
             Configure {agentConfig.name}
           </DialogTitle>
-          <DialogDescription className="space-y-2">
-            <p>{agentConfig.description}</p>
-            {getModelRecommendation(agentConfig.key) && (
-              <Alert variant="warning">
-                <Info className="h-4 w-4" />
-                <AlertDescription className="text-sm">
-                  {getModelRecommendation(agentConfig.key)}
-                </AlertDescription>
-              </Alert>
-            )}
+          <DialogDescription>
+            {agentConfig.description}
           </DialogDescription>
         </DialogHeader>
+
+        {/* Alerts outside DialogDescription to avoid nested p/div issues */}
+        <div className="space-y-2 -mt-2">
+          {agentConfig.constraint?.enabled && (
+            <Alert>
+              <Info className="h-4 w-4" />
+              <AlertDescription className="text-sm">
+                Model selection limited to {agentConfig.constraint.allowedModels.length} allowed model{agentConfig.constraint.allowedModels.length !== 1 ? 's' : ''} for this operation.
+              </AlertDescription>
+            </Alert>
+          )}
+          {getModelRecommendation(agentConfig.key) && (
+            <Alert variant="warning">
+              <Info className="h-4 w-4" />
+              <AlertDescription className="text-sm">
+                {getModelRecommendation(agentConfig.key)}
+              </AlertDescription>
+            </Alert>
+          )}
+        </div>
 
         <div className="space-y-6">
           {/* Current Status */}
@@ -326,7 +335,7 @@ export function ConfigModal({
                   Select primary and fallback models - we'll use your API keys if available
                 </p>
               </div>
-              <Button variant="outline" size="sm" 
+              <Button variant="outline" size="sm"
               onClick={openByokModal}
               disabled // DISABLED: BYOK Disabled for security reasons
               className="gap-2">
@@ -335,7 +344,7 @@ export function ConfigModal({
                 Coming Soon
               </Button>
             </div>
-            
+
             {/* Two-Column Model Layout */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Primary AI Model */}
@@ -349,7 +358,7 @@ export function ConfigModal({
                   systemDefault={defaultConfig?.name}
                   disabled={loadingByok}
                 />
-                
+
                 {/* Model Status Messages */}
                 {selectedModelInfo.requiresBYOK && (
                   <div className="flex items-center gap-2 text-sm text-amber-600 bg-amber-50 dark:bg-amber-950/20 px-3 py-2 rounded-md border border-amber-200 dark:border-amber-800">
@@ -360,14 +369,14 @@ export function ConfigModal({
                     </Button>
                   </div>
                 )}
-                
+
                 {selectedModelInfo.isPlatformModel && formData.modelName && formData.modelName !== 'default' && (
                   <div className="flex items-center gap-2 text-xs p-4 rounded-lg border bg-blue-50 dark:bg-blue-500/20 border-blue-600/10 dark:border-blue-100/10 text-blue-600/80 dark:text-blue-300">
                     <Info className="h-4 w-4 mr-1" />
                     <span >Platform model with usage limits. Consider BYOK for higher usage.</span>
                   </div>
                 )}
-                
+
                 {formData.modelName && formData.modelName !== 'default' && selectedModelInfo.hasUserKey && (
                   <div className="flex items-center gap-2 text-sm text-green-600 bg-green-50 dark:bg-green-950/20 px-3 py-2 rounded-md border border-green-200 dark:border-green-800">
                     <Check className="h-4 w-4" />
@@ -407,7 +416,7 @@ export function ConfigModal({
                   Models served through our platform with limited quota. No API keys required.
                 </p>
               </div>
-              
+
               <div className="p-4 rounded-lg border bg-green-50 dark:bg-green-500/20 border-green-600/10 dark:border-green-100/10">
                 <div className="flex items-center gap-2 mb-2">
                   <div className="h-2 w-2 rounded-full bg-green-500"></div>
@@ -425,8 +434,8 @@ export function ConfigModal({
           {/* Parameters */}
           <div className="space-y-4">
             <h4 className="font-medium text-sm">Parameters</h4>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Temperature */}
               <div className="space-y-2">
                 <Label className="text-sm font-medium">Temperature</Label>
@@ -443,25 +452,6 @@ export function ConfigModal({
                 {defaultConfig?.temperature && (
                   <p className="text-xs text-text-tertiary">
                     🔧 Default: {defaultConfig.temperature}
-                  </p>
-                )}
-              </div>
-
-              {/* Max Tokens */}
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Max Tokens</Label>
-                <Input
-                  type="number"
-                  min="1"
-                  max="200000"
-                  value={formData.maxTokens}
-                  placeholder={defaultConfig?.max_tokens ? `${defaultConfig.max_tokens}` : '4000'}
-                  onChange={(e) => setFormData({...formData, maxTokens: e.target.value})}
-                  className="h-10"
-                />
-                {defaultConfig?.max_tokens && (
-                  <p className="text-xs text-text-tertiary">
-                    🔧 Default: {defaultConfig.max_tokens?.toLocaleString()}
                   </p>
                 )}
               </div>
@@ -511,7 +501,7 @@ export function ConfigModal({
                 </>
               )}
             </Button>
-            
+
             {isUserOverride && (
               <Button
                 variant="ghost"
@@ -529,7 +519,7 @@ export function ConfigModal({
             <Button variant="outline" onClick={onClose}>
               Cancel
             </Button>
-            <Button 
+            <Button
               onClick={handleSave}
               disabled={!hasChanges}
             >

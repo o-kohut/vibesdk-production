@@ -60,7 +60,7 @@ class SetupManager {
 	});
 
 	constructor() {
-		console.log('🚀 VibSDK Development Setup');
+		console.log('🚀 VibeSDK Development Setup');
 		console.log('============================\n');
 	}
 
@@ -1814,7 +1814,7 @@ class SetupManager {
 			}
 		}
 
-		console.log('\n✨ Happy coding with VibSDK! ✨');
+		console.log('\n✨ Happy coding with VibeSDK! ✨');
 	}
 
 	private async updateWorkerConfiguration(): Promise<void> {

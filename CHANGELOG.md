@@ -1,5 +1,33 @@
 # Changelog
 
+## [1.2.0](https://github.com/cloudflare/vibesdk/compare/v1.1.0...v1.2.0) (2025-11-30)
+
+
+### Features
+
+* add agent-specific model constraints and refactor generation ([3f9ccf7](https://github.com/cloudflare/vibesdk/commit/3f9ccf7b3b1b137d6255493da14f8463ce8a66f3))
+* Cost optimizations via model configs and prompt improvements ([#247](https://github.com/cloudflare/vibesdk/issues/247)) ([2b3a901](https://github.com/cloudflare/vibesdk/commit/2b3a90149d336a1dc5aab6a7e4f999461cf147d3))
+* enhance changelog generation with detailed PR and commit data ([8950852](https://github.com/cloudflare/vibesdk/commit/89508523afada3f9522cdc19b994006b4e878a15))
+* improve template selection reliability and prompt clarity ([8ed1a08](https://github.com/cloudflare/vibesdk/commit/8ed1a0840b70f3e48a6245a89d4b4d468093ee97))
+* prompt tuning for shorter blueprints ([e9041f1](https://github.com/cloudflare/vibesdk/commit/e9041f1793bced58754a177c8a95e2609a5b56de))
+* rewrite process monitoring and error handling ([b0db701](https://github.com/cloudflare/vibesdk/commit/b0db701e82fad2d00820b7bd127b412017301cce))
+* upgraded to sandbox sdk version 0.5.2 ([9f9cc7a](https://github.com/cloudflare/vibesdk/commit/9f9cc7aa98be1373db0267b39cb7dd67d82d5dd6))
+
+
+### Bug Fixes
+
+* add additional ownership verification checks ([b74a645](https://github.com/cloudflare/vibesdk/commit/b74a645202937d0e8538265c9b7c6467f084655e))
+* added instructions for token creation ([3544038](https://github.com/cloudflare/vibesdk/commit/354403896f81573316f4ec5ec4fb1cae898fb255))
+* added instructions for token creation ([f7cc7ea](https://github.com/cloudflare/vibesdk/commit/f7cc7ea2bd243eefa176900e820b30b8a61e4c65))
+* added instructions for token creation ([ea3f110](https://github.com/cloudflare/vibesdk/commit/ea3f110fd9526da2978dd1064d377bf70f0c7c81))
+* better stale comment removal + correct YAML string escaping ([834cffa](https://github.com/cloudflare/vibesdk/commit/834cffa6968bc71513640e423a8f504f17d4ef9a))
+* cleanup chat.tsx for build ([670c8d6](https://github.com/cloudflare/vibesdk/commit/670c8d6c241d38335676440ecaa6225795ba6f2a))
+* don't wait for runtime errors if app not deployed ([0dd3e7e](https://github.com/cloudflare/vibesdk/commit/0dd3e7ef357a0193d6f8f5de9771306ab13754bd))
+* dont clear runtime errors on executeDeepDebug ([1eda73e](https://github.com/cloudflare/vibesdk/commit/1eda73ef5a57aa6203d9b7dac9d39bf160b2af00))
+* prevent race condition in code generation state ([188ba0d](https://github.com/cloudflare/vibesdk/commit/188ba0d1bdf7f30fd258275804e311921457d5e9))
+* typeScript features configurable to reduce memory ([d3f984c](https://github.com/cloudflare/vibesdk/commit/d3f984c3fd8e5ce4909f5849b97c3ecd3b900dd2))
+* unescape commit messages before git operations ([d51310b](https://github.com/cloudflare/vibesdk/commit/d51310b77723c87749a34c20b78a415054298eaa))
+
 ## [1.1.0](https://github.com/cloudflare/vibesdk/compare/v1.0.0...v1.1.0) (2025-11-04)
 
 
