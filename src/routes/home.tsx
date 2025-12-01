@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect, useMemo } from 'react';
-import { ArrowRight, Info } from 'react-feather';
+import { ArrowRight, Info, AlertTriangle } from 'react-feather';
 import { useNavigate } from 'react-router';
 import {
 	AgentModeToggle,
@@ -14,6 +14,7 @@ import { ImageUploadButton } from '@/components/image-upload-button';
 import { ImageAttachmentPreview } from '@/components/image-attachment-preview';
 import { SUPPORTED_IMAGE_MIME_TYPES } from '@/api-types';
 import { Button } from '@/components/ui/button.tsx';
+import { Badge } from '@/components/ui/badge.tsx';
 
 export default function Home() {
 	const navigate = useNavigate();
@@ -133,8 +134,11 @@ export default function Home() {
 							"px-6 p-8 flex flex-col items-center z-10 relative",
 							"mt-[20vh] sm:mt-[24vh] md:mt-[28vh]"
 						)}>
-						<h1 className="text-primary font-semibold font-heading leading-[1.1] tracking-tight text-5xl w-full mb-4">
+						<h1 className="text-primary font-semibold font-heading leading-[1.1] tracking-tight text-5xl w-full mb-4 flex items-center gap-3">
 							Build your Crowdin app
+							<Badge className="text-xs font-semibold bg-foreground/5 text-foreground/70 border-border uppercase tracking-wider">
+								Alpha
+							</Badge>
 						</h1>
 						<p className="text-text-secondary text-base mb-4">
 							Create custom localization tools, automate workflows, and enhance your translation projects with AI
@@ -216,6 +220,12 @@ export default function Home() {
 							</div>
 							</div>
 						</form>
+						<div className="flex items-center gap-1.5 px-1 mt-3">
+							<AlertTriangle className="size-3 text-muted-foreground flex-shrink-0" />
+							<p className="text-xs text-muted-foreground">
+								<span className="font-medium">Alpha Software:</span> Generated apps may contain bugs or security issues.
+							</p>
+						</div>
 					</motion.div>
 
 				</div>
