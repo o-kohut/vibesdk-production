@@ -14,7 +14,7 @@ const COMMON_AGENT_CONFIGS = {
     templateSelection: {
         name: AIModels.GEMINI_2_5_FLASH_LITE,
         max_tokens: 2000,
-        fallbackModel: AIModels.GEMINI_2_5_FLASH,
+        fallbackModel: AIModels.GEMINI_2_5_FLASH_LITE,
         temperature: 0.6,
     },
     screenshotAnalysis: {
@@ -143,7 +143,7 @@ const DEFAULT_AGENT_CONFIG: AgentConfig = {
         reasoning_effort: 'low',
         max_tokens: 4000,
         temperature: 0,
-        fallbackModel: AIModels.GEMINI_2_5_PRO,
+        fallbackModel: AIModels.GEMINI_2_5_FLASH,
     },
     deepDebugger: {
         name: AIModels.GEMINI_3_PRO_PREVIEW,
@@ -184,7 +184,7 @@ export const AGENT_CONSTRAINTS: Map<AgentActionKey, AgentConstraintConfig> = new
 		enabled: true,
 	}],
 	['projectSetup', {
-		allowedModels: new Set([...RegularModels, AIModels.GEMINI_2_5_PRO]),
+		allowedModels: new Set(AllModels),
 		enabled: true,
 	}],
 	['conversationalResponse', {
