@@ -122,7 +122,9 @@ function AnimatedStatusIndicator({ status, size = 5 }: AnimatedStatusIndicatorPr
 						transition={commonTransitions.smoothInOut}
 						className={clsx(sizeClass, 'flex items-center justify-center')}
 					>
-						<div className="size-2 rounded-full bg-zinc-300" />
+						<div className="rounded-full bg-background border border-background -left-[1px] relative">
+							<div className="size-2 rounded-full bg-foreground/30" />
+						</div>
 					</motion.div>
 				)}
 				{status === 'active' && (
@@ -148,7 +150,9 @@ function AnimatedStatusIndicator({ status, size = 5 }: AnimatedStatusIndicatorPr
 						transition={commonTransitions.smoothInOut}
 						className={clsx(sizeClass, 'flex items-center justify-center')}
 					>
-						<div className="size-2 rounded-full bg-brand" />
+						<div className="rounded-full bg-background border border-background -left-[1px] relative">
+							<div className="size-2 rounded-full bg-brand" />
+						</div>
 					</motion.div>
 				)}
 				{status === 'error' && (
@@ -751,22 +755,22 @@ export function PhaseTimeline({
 									{phaseTimeline.map((phase, phaseIndex) => (
 										<div
 											key={phase.id}
-											className="space-y-1 relative"
+											className="space-y-1 relative pl-1"
 											ref={phaseIndex === phaseTimeline.length - 1 ? lastPhaseRef : undefined}
 										>
 											{/* Subtle vertical line connecting phases */}
 											{phaseIndex < phaseTimeline.length - 1 && (
-												<div className="absolute left-[5px] w-[0.5px] h-full top-3 bg-foreground/30" />
+												<div className="absolute left-[5px] w-[0.5px] h-full top-4.5 bg-foreground/30" />
 											)}
 											{/* Phase Implementation Header */}
 											<button
 												onClick={() => (phase.status === 'completed' || phase.status === 'cancelled') && togglePhase(phase.id)}
-												className="flex items-start gap-2 relative p-2 z-0 w-full text-left hover:bg-foreground/5 rounded-md transition-colors group"
+												className="flex items-start w-full gap-2 relative z-0 !bg-transparent transition-colors group"
 												disabled={phase.status !== 'completed' && phase.status !== 'cancelled'}
 											>
 												{/* Expand/Collapse chevron for completed/cancelled phases */}
 												{(phase.status === 'completed' || phase.status === 'cancelled') && (
-													<div className="flex-shrink-0 opacity-60 group-hover:opacity-100 transition-opacity mt-0.5">
+													<div className="flex-shrink-0 opacity-60 group-hover:opacity-100 transition-opacity mt-2.5 left-2 relative">
 														{expandedPhases.has(phase.id) ? (
 															<ChevronDown className="size-3" />
 														) : (
@@ -774,23 +778,25 @@ export function PhaseTimeline({
 														)}
 													</div>
 												)}
+												 <div className="flex flex-grow-1 items-start p-2 gap-2 text-left group-hover:bg-foreground/5 rounded-md transition-colors rounded-md">
 
-												<div className="flex-shrink-0 mt-0.5">
-													<StatusIcon status={phase.status} size="sm" />
-												</div>
-												<span className="text-sm font-medium text-text-50 flex-1 break-words">
-													{phase.status === 'completed' ? `Implemented ${phase.name}` :
-													 phase.status === 'cancelled' ? `Cancelled ${phase.name}` :
-													 phase.status === 'validating' ? `Reviewing ${phase.name}` :
-													 `Implementing ${phase.name}`}
-												</span>
-
-												{/* File count badge for collapsed completed/cancelled phases */}
-												{(phase.status === 'completed' || phase.status === 'cancelled') && !expandedPhases.has(phase.id) && (
-													<span className="text-xs text-foreground/50 bg-foreground/5 px-1.5 py-0.5 rounded flex-shrink-0">
-														{phase.files.length} files
+													<div className="flex-shrink-0 mt-0.5">
+														<StatusIcon status={phase.status} size="sm" />
+													</div>
+													<span className="text-sm font-medium text-text-50 flex-1 break-words">
+														{phase.status === 'completed' ? `Implemented ${phase.name}` :
+														phase.status === 'cancelled' ? `Cancelled ${phase.name}` :
+														phase.status === 'validating' ? `Reviewing ${phase.name}` :
+														`Implementing ${phase.name}`}
 													</span>
-												)}
+
+													{/* File count badge for collapsed completed/cancelled phases */}
+													{(phase.status === 'completed' || phase.status === 'cancelled') && !expandedPhases.has(phase.id) && (
+														<span className="text-xs text-foreground/50 bg-foreground/5 px-1.5 py-0.5 rounded flex-shrink-0">
+															{phase.files.length} files
+														</span>
+													)}
+												</div>
 											</button>
 
 											{/* Phase Files - Show when implementing, validating, or expanded */}
