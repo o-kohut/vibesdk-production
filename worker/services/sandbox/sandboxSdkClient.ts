@@ -865,6 +865,7 @@ export class SandboxSdkClient extends BaseSandboxService {
                 CROWDIN_CLIENT_ID: devOAuthResult.clientId,
                 CROWDIN_CLIENT_SECRET: devOAuthResult.clientSecret,
                 SCHEDULED_SECRET: env.SCHEDULED_SECRET,
+                SHOW_DEBUG_LINK: true,
             };
 
             // Replace placeholders in JSONC file (preserves comments and formatting)
