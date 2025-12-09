@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.3.0](https://github.com/cloudflare/vibesdk/compare/v1.2.0...v1.3.0) (2025-12-08)
+
+
+### Features
+
+* enforce template write-protection in simple code generator ([4f0dccf](https://github.com/cloudflare/vibesdk/commit/4f0dccf60661a6ae7ca09fd696270a0152316ea1))
+* latest packages updated ([e5496e0](https://github.com/cloudflare/vibesdk/commit/e5496e0cfd2923acc25d7e4f2265b4a0d7fd69f8))
+
+
+### Bug Fixes
+
+* filter protected files ([ff3a302](https://github.com/cloudflare/vibesdk/commit/ff3a302bf8fa3059156c4f10efc30c55aa6f0455))
+* variable name mismatch in simple code generation operation ([22b8f00](https://github.com/cloudflare/vibesdk/commit/22b8f0082ab0817be9fd9571c6d0806c49c1180a))
+
 ## [1.2.0](https://github.com/cloudflare/vibesdk/compare/v1.1.0...v1.2.0) (2025-11-30)
 
 
