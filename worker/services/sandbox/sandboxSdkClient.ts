@@ -1063,7 +1063,7 @@ export class SandboxSdkClient extends BaseSandboxService {
             }
 
             this.logger.info('Installing dependencies', { instanceId });
-            const installResult = await this.executeCommand(instanceId, `bun install`, { timeout: 40000 });
+            const installResult = await this.executeCommand(instanceId, `bun install`, { timeout: 120000 });
             this.logger.info('Dependencies installed', { instanceId, tunnelURL });
 
             if (installResult.exitCode === 0) {

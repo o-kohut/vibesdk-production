@@ -289,7 +289,7 @@ export class DeploymentManager extends BaseAgentService implements IDeploymentMa
      * Main deployment method
      * Callbacks allow agent to broadcast at the right times
      * All concurrent callers share the same promise and wait together
-     * Retries indefinitely until success or master timeout (5 minutes)
+     * Retries indefinitely until success or master timeout (15 minutes)
      */
     async deployToSandbox(
         files: FileOutputType[] = [],
@@ -306,7 +306,7 @@ export class DeploymentManager extends BaseAgentService implements IDeploymentMa
             return await this.withTimeout(
                 this.currentDeploymentPromise,
                 MASTER_DEPLOYMENT_TIMEOUT_MS,
-                'Deployment failed after 5 minutes'
+                'Deployment failed after 15 minutes'
             ).catch(() => null);  // Convert timeout to null like first caller
         }
 
@@ -322,12 +322,12 @@ export class DeploymentManager extends BaseAgentService implements IDeploymentMa
         );
 
         try {
-            // Master timeout: 5 minutes total
+            // Master timeout: 15 minutes total
             // This doesn't break the underlying operation - it just stops waiting
             const result = await this.withTimeout(
                 this.currentDeploymentPromise,
                 MASTER_DEPLOYMENT_TIMEOUT_MS,
-                'Deployment failed after 5 minutes of retries'
+                'Deployment failed after 15 minutes of retries'
                 // No onTimeout callback - don't break the operation
             );
             return result;
