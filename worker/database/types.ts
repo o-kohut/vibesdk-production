@@ -79,7 +79,7 @@ export type TimePeriod = 'today' | 'week' | 'month' | 'all';
 /**
  * Sort options for app listings
  */
-export type AppSortOption = 'recent' | 'popular' | 'trending' | 'starred';
+export type AppSortOption = 'recent' | 'popular' | 'trending' | 'starred' | 'forked';
 
 /**
  * Sort order options

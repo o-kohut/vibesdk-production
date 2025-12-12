@@ -11,7 +11,7 @@ export default function DiscoverPage() {
 	const [searchParams, setSearchParams] = useSearchParams();
 
 	// Derive initial sort from URL or localStorage, fallback to 'popular'
-	const allowedSorts: AppSortOption[] = ['recent', 'popular', 'trending', 'starred'];
+	const allowedSorts: AppSortOption[] = ['recent', 'popular', 'trending', 'starred', 'forked'];
 	const sortParam = searchParams.get('sort') as AppSortOption | null;
 	const savedSort = (typeof localStorage !== 'undefined' ? localStorage.getItem('discover.sort') : null) as AppSortOption | null;
 	const initialSort: AppSortOption = (sortParam && allowedSorts.includes(sortParam))
@@ -96,7 +96,7 @@ export default function DiscoverPage() {
 							next.set('sort', v);
 							setSearchParams(next, { replace: true });
 						}}
-						availableSorts={['recent', 'popular', 'trending', 'starred']}
+						availableSorts={['recent', 'popular', 'trending', 'starred', 'forked']}
 					/>
 					</div>
 

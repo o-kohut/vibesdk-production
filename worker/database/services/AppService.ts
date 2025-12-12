@@ -934,10 +934,12 @@ export class AppService extends BaseService {
                     .offset(offset);
             }
         } else {
-            // Simple query for recent/starred sorts
+            // Simple query for recent/starred/forked sorts
             const direction = order === 'asc' ? asc : desc;
             const orderByExpression = sort === 'starred' 
                 ? sql`(SELECT COUNT(*) FROM ${schema.stars} WHERE ${schema.stars.appId} = ${schema.apps.id}) DESC`
+                : sort === 'forked'
+                ? sql`(SELECT COUNT(*) FROM ${schema.apps} AS forks WHERE forks.parent_app_id = ${schema.apps.id}) DESC`
                 : direction(schema.apps.updatedAt);
                 
             return db

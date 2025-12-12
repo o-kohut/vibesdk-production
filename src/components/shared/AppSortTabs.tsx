@@ -1,5 +1,5 @@
 import React from 'react';
-import { Clock, TrendingUp, ChevronDownIcon, Star } from 'lucide-react';
+import { Clock, TrendingUp, ChevronDownIcon, Star, GitFork } from 'lucide-react';
 import type { AppSortOption } from '@/api-types';
 
 interface SortOption {
@@ -36,6 +36,11 @@ const SORT_CONFIGURATIONS: Record<AppSortOption, SortOption> = {
     value: 'starred',
     label: 'Starred',
     icon: Star
+  },
+  forked: {
+    value: 'forked',
+    label: 'Forked',
+    icon: GitFork
   },
 };
 
