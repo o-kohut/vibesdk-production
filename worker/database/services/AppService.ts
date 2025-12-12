@@ -195,12 +195,26 @@ export class AppService extends BaseService {
     }
 
     /**
+     * Helper to parse DISCOVER_ALLOWED_USER_IDS env variable
+     * Returns array of allowed user IDs or null if not set/empty
+     */
+    private getDiscoverAllowedUserIds(): string[] | null {
+        const allowedUserIds = this.env.DISCOVER_ALLOWED_USER_IDS;
+        if (!allowedUserIds || allowedUserIds.trim() === '') {
+            return null;
+        }
+        return allowedUserIds.split(',').map(id => id.trim()).filter(Boolean);
+    }
+
+    /**
      * Helper to build public app query conditions
      */
     private buildPublicAppConditions(
         framework?: string, 
         search?: string
     ): WhereCondition[] {
+        const allowedUserIds = this.getDiscoverAllowedUserIds();
+        
         const whereConditions: WhereCondition[] = [
             // Only show public apps or apps from anonymous users
             or(
@@ -214,6 +228,11 @@ export class AppService extends BaseService {
             // Use shared helper for common filters
             ...this.buildCommonAppFilters(framework, search),
         ];
+
+        // Filter by allowed user IDs if DISCOVER_ALLOWED_USER_IDS is set
+        if (allowedUserIds && allowedUserIds.length > 0) {
+            whereConditions.push(inArray(schema.apps.userId, allowedUserIds));
+        }
 
         return whereConditions.filter(Boolean);
     }

@@ -8,6 +8,7 @@ import Profile from './routes/profile';
 import Settings from './routes/settings/index';
 import AppsPage from './routes/apps';
 import AppView from './routes/app';
+import DiscoverPage from './routes/discover';
 import AccessDenied from './routes/access-denied';
 import { ProtectedRoute } from './routes/protected-route';
 
@@ -39,6 +40,10 @@ const routes = [
 			{
 				path: 'app/:id',
 				Component: AppView,
+			},
+			{
+				path: 'discover',
+				Component: DiscoverPage,
 			},
 			{
 				path: 'access-denied',
