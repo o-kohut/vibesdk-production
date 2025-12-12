@@ -15,8 +15,8 @@ import { BaseSandboxService } from 'worker/services/sandbox/BaseSandboxService';
 import { getSandboxService } from '../../../services/sandbox/factory';
 import { validateAndCleanBootstrapCommands } from 'worker/agents/utils/common';
 
-const PER_ATTEMPT_TIMEOUT_MS = 60000;  // 60 seconds per individual attempt
-const MASTER_DEPLOYMENT_TIMEOUT_MS = 300000;  // 5 minutes total
+const PER_ATTEMPT_TIMEOUT_MS = 180000;  // 3 minutes per individual attempt
+const MASTER_DEPLOYMENT_TIMEOUT_MS = 900000;  // 15 minutes total
 const HEALTH_CHECK_INTERVAL_MS = 30000;
 
 /**
@@ -124,7 +124,7 @@ export class DeploymentManager extends BaseAgentService implements IDeploymentMa
      */
     async executeSetupCommands(
         sandboxInstanceId: string, 
-        timeoutMs: number = 60000,
+        timeoutMs: number = 180000,
         onAfterCommands?: () => Promise<void>
     ): Promise<void> {
         const { commandsHistory } = this.getState();
