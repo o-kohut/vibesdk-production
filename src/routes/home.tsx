@@ -6,7 +6,9 @@ import {
 	type AgentMode,
 } from '../components/agent-mode-toggle';
 import { useAuthGuard } from '../hooks/useAuthGuard';
+import { usePaginatedApps } from '@/hooks/use-paginated-apps';
 import { AnimatePresence, LayoutGroup, motion } from 'framer-motion';
+import { AppCard } from '@/components/shared/AppCard';
 import clsx from 'clsx';
 import { useImageUpload } from '@/hooks/use-image-upload';
 import { useDragDrop } from '@/hooks/use-drag-drop';
@@ -49,6 +51,18 @@ export default function Home() {
 	const [currentPlaceholderText, setCurrentPlaceholderText] = useState("");
 	const [isPlaceholderTyping, setIsPlaceholderTyping] = useState(true);
 
+	const {
+		apps,
+		loading,
+	} = usePaginatedApps({
+		type: 'public',
+		defaultSort: 'popular',
+		defaultPeriod: 'week',
+		limit: 6,
+	});
+
+	// Discover section should appear only when enough apps are available and loading is done
+	const discoverReady = useMemo(() => !loading && (apps?.length ?? 0) > 5, [loading, apps]);
 
 	const handleCreateApp = (query: string, mode: AgentMode) => {
 		const encodedQuery = encodeURIComponent(query);
@@ -120,6 +134,8 @@ export default function Home() {
 		}
 	}, [currentPlaceholderText, currentPlaceholderPhraseIndex, isPlaceholderTyping, placeholderPhrases]);
 
+	const discoverLinkRef = useRef<HTMLDivElement>(null);
+
 	return (
 		<div className="relative flex flex-col items-center size-full">
 			<div
@@ -132,7 +148,7 @@ export default function Home() {
 						transition={{ layout: { duration: 0.5, ease: [0.22, 1, 0.36, 1] } }}
 						className={clsx(
 							"px-6 p-8 flex flex-col items-center z-10 relative",
-							"mt-[20vh] sm:mt-[24vh] md:mt-[28vh]"
+							discoverReady ? "mt-48" : "mt-[20vh] sm:mt-[24vh] md:mt-[28vh]"
 						)}>
 						<h1 className="text-primary font-semibold font-heading leading-[1.1] tracking-tight text-5xl w-full mb-4 flex items-center gap-3">
 							Build your Crowdin app
@@ -245,6 +261,49 @@ export default function Home() {
 								</p>
 							</div>
 						</motion.div>
+					)}
+				</AnimatePresence>
+
+				<AnimatePresence>
+					{discoverReady && (
+						<motion.section
+							key="discover-section"
+							layout
+							initial={{ opacity: 0, height: 0 }}
+							animate={{ opacity: 1, height: "auto" }}
+							exit={{ opacity: 0, height: 0 }}
+							transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+							className={clsx('w-full max-w-6xl mx-auto px-4 z-10', images.length > 0 ? 'mt-10' : 'mt-16 mb-8')}
+						>
+							<div className="flex items-center justify-between mb-6">
+								<h2 className="text-2xl font-semibold font-heading text-foreground">Community Apps</h2>
+								<div 
+									ref={discoverLinkRef} 
+									className="text-sm text-muted-foreground hover:text-foreground cursor-pointer transition-colors" 
+									onClick={() => navigate('/discover')}
+								>
+									View All →
+								</div>
+							</div>
+							<motion.div
+								layout
+								transition={{ duration: 0.4 }}
+								className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6"
+							>
+								<AnimatePresence mode="popLayout">
+									{apps.map(app => (
+										<AppCard
+											key={app.id}
+											app={app}
+											onClick={() => navigate(`/app/${app.id}`)}
+											showStats={true}
+											showUser={true}
+											showActions={false}
+										/>
+									))}
+								</AnimatePresence>
+							</motion.div>
+						</motion.section>
 					)}
 				</AnimatePresence>
 			</LayoutGroup>
