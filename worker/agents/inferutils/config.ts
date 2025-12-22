@@ -117,7 +117,7 @@ const DEFAULT_AGENT_CONFIG: AgentConfig = {
     ...COMMON_AGENT_CONFIGS,
     blueprint: {
         name: AIModels.GEMINI_3_PRO_PREVIEW,
-        reasoning_effort: 'medium',
+        reasoning_effort: 'high',
         max_tokens: 64000,
         fallbackModel: AIModels.GEMINI_2_5_FLASH,
         temperature: 0.7,
