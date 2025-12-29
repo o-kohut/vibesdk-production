@@ -66,10 +66,7 @@ export async function cloneAgent(env: Env, agentId: string, newUserId: string) :
         pendingUserInputs: [],
         shouldBeGenerating: false,
         projectUpdatesAccumulator: [],
-        reviewingInitiated: false,
-        mvpGenerated: false,
         ...(originalState.behaviorType === 'phasic' ? {
-            generatedPhases: [],
             currentDevState: CurrentDevState.IDLE,
         } : {}),
 		metadata: newInferenceMetadata,
