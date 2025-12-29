@@ -1,7 +1,6 @@
 import { useRef, useState, useEffect, useMemo } from 'react';
 import { ArrowRight, Info, AlertTriangle } from 'react-feather';
 import { useNavigate } from 'react-router';
-import { useAuth } from '@/contexts/auth-context';
 import { ProjectModeSelector, type ProjectModeOption } from '../components/project-mode-selector';
 import { MAX_AGENT_QUERY_LENGTH, SUPPORTED_IMAGE_MIME_TYPES, type ProjectType } from '@/api-types';
 import { useFeature } from '@/features';
@@ -24,7 +23,6 @@ export default function Home() {
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 	const [projectMode, setProjectMode] = useState<ProjectType>('app');
 	const [query, setQuery] = useState('');
-	const { user } = useAuth();
 	const { isLoadingCapabilities, capabilities, getEnabledFeatures } = useFeature();
 
 	const modeOptions = useMemo<ProjectModeOption[]>(() => {
