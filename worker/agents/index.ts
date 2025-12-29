@@ -1,7 +1,7 @@
 import { getAgentByName } from 'agents';
 import { generateId, generateNanoId } from '../utils/idGenerator';
 import { StructuredLogger } from '../logger';
-import { InferenceContext, ModelConfig } from './inferutils/config.types';
+import { InferenceContext, InferenceMetadata } from './inferutils/config.types';
 import { SandboxSdkClient } from '../services/sandbox/sandboxSdkClient';
 import { selectTemplate } from './planning/templateSelector';
 import { TemplateDetails } from '../services/sandbox/sandboxTypes';
@@ -12,7 +12,6 @@ import { BaseSandboxService } from 'worker/services/sandbox/BaseSandboxService';
 import { AgentState, CurrentDevState } from './core/state';
 import { CodeGeneratorAgent } from './core/codingAgent';
 import { BehaviorType, ProjectType } from './core/types';
-import { ModelConfigService } from '../database/services/ModelConfigService';
 import { generateProjectName } from './utils/templateCustomizer';
 
 type AgentStubProps = {
@@ -47,43 +46,11 @@ export async function cloneAgent(env: Env, agentId: string, newUserId: string) :
     }
     const newAgentId = generateId();
 
-	const originalState = await agentInstance.getFullState();
+    const originalState = await agentInstance.getFullState();
 
-	// Fetch user model configs for the new user (same as in startCodeGeneration)
-	const modelConfigService = new ModelConfigService(env);
-
-	// Fetch all user model configs, api keys and agent instance at once
-	const [userConfigsRecord, newAgent] = await Promise.all([
-		modelConfigService.getUserModelConfigs(newUserId),
-		getAgentStub(env, newAgentId, {
-			behaviorType: originalState.behaviorType,
-			projectType: originalState.projectType,
-		})
-	]);
-
-	// Convert Record to Map and extract only ModelConfig properties
-	const userModelConfigs = new Map();
-	for (const [actionKey, mergedConfig] of Object.entries(userConfigsRecord)) {
-		if (mergedConfig.isUserOverride) {
-			const modelConfig: ModelConfig = {
-				name: mergedConfig.name,
-				max_tokens: mergedConfig.max_tokens,
-				temperature: mergedConfig.temperature,
-				reasoning_effort: mergedConfig.reasoning_effort,
-				fallbackModel: mergedConfig.fallbackModel
-			};
-			userModelConfigs.set(actionKey, modelConfig);
-		}
-	}
-
-	const newInferenceContext: InferenceContext = {
-		userModelConfigs: Object.fromEntries(userModelConfigs),
-		metadata: {
-			agentId: newAgentId,
-			userId: newUserId,
-		},
-		enableRealtimeCodeFix: false, // This costs us too much, so disabled it for now
-		enableFastSmartCodeFix: false,
+	const newInferenceMetadata: InferenceMetadata = {
+		agentId: newAgentId,
+		userId: newUserId,
 	};
 
 	const newProjectName = generateProjectName(
@@ -105,12 +72,20 @@ export async function cloneAgent(env: Env, agentId: string, newUserId: string) :
             generatedPhases: [],
             currentDevState: CurrentDevState.IDLE,
         } : {}),
-		metadata: newInferenceContext.metadata,
+		metadata: newInferenceMetadata,
 		projectName: newProjectName,
     } as AgentState;
 
+    const newAgent = await getAgentStub(env, newAgentId, {
+        behaviorType: originalState.behaviorType,
+        projectType: originalState.projectType,
+    });
+
     await newAgent.setState(newState);
-    // await newAgent.initializeFork();
+    await newAgent.onStart({
+        behaviorType: originalState.behaviorType,
+        projectType: originalState.projectType,
+    });
 
     return {newAgentId, newAgent};
 }

@@ -40,7 +40,7 @@ export abstract class BaseAgentService<TState extends BaseProjectState = BasePro
     }
 
     getUserId() {
-        return this.getState().inferenceContext.userId
+        return this.getState().metadata.userId
     }
 
     /**

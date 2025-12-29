@@ -285,11 +285,11 @@ export function MainContentPanel(props: MainContentPanelProps) {
 				<span className="text-sm text-text-50/70 font-mono">Blueprint.md</span>
 				{previewUrl && <Copy text={previewUrl} />}
 			</div>,
-			<div className="flex-1 overflow-y-auto bg-bg-3">
+			<div className="flex-1 overflow-y-auto bg-bg-3 dark:bg-bg-1">
 				<div className="py-12 mx-auto">
 					<Blueprint
 						blueprint={blueprint ?? ({} as BlueprintType)}
-						className="w-full max-w-2xl mx-auto"
+						className="w-full max-w-2xl mx-auto dark:border dark:rounded-xl"
 					/>
 				</div>
 			</div>
