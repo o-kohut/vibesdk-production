@@ -1,96 +1,117 @@
-
-import { SmartCodeGeneratorAgent } from './core/smartGeneratorAgent';
 import { getAgentByName } from 'agents';
-import { CodeGenState } from './core/state';
 import { generateId, generateNanoId } from '../utils/idGenerator';
 import { StructuredLogger } from '../logger';
 import { InferenceContext, ModelConfig } from './inferutils/config.types';
 import { SandboxSdkClient } from '../services/sandbox/sandboxSdkClient';
 import { selectTemplate } from './planning/templateSelector';
 import { TemplateDetails } from '../services/sandbox/sandboxTypes';
+import { createScratchTemplateDetails } from './utils/templates';
 import { TemplateSelection } from './schemas';
 import type { ImageAttachment } from '../types/image-attachment';
 import { BaseSandboxService } from 'worker/services/sandbox/BaseSandboxService';
+import { AgentState, CurrentDevState } from './core/state';
+import { CodeGeneratorAgent } from './core/codingAgent';
+import { BehaviorType, ProjectType } from './core/types';
 import { ModelConfigService } from '../database/services/ModelConfigService';
 import { generateProjectName } from './utils/templateCustomizer';
 
-export async function getAgentStub(env: Env, agentId: string) : Promise<DurableObjectStub<SmartCodeGeneratorAgent>> {
-    return getAgentByName<Env, SmartCodeGeneratorAgent>(env.CodeGenObject, agentId);
+type AgentStubProps = {
+    behaviorType?: BehaviorType;
+    projectType?: ProjectType;
+};
+
+export async function getAgentStub(
+    env: Env,
+    agentId: string,
+    props?: AgentStubProps
+) : Promise<DurableObjectStub<CodeGeneratorAgent>> {
+    const options = props ? { props } : undefined;
+    return getAgentByName<Env, CodeGeneratorAgent>(env.CodeGenObject, agentId, options);
 }
 
-export async function getAgentStubLightweight(env: Env, agentId: string) : Promise<DurableObjectStub<SmartCodeGeneratorAgent>> {
-    return getAgentByName<Env, SmartCodeGeneratorAgent>(env.CodeGenObject, agentId, {
+export async function getAgentStubLightweight(env: Env, agentId: string) : Promise<DurableObjectStub<CodeGeneratorAgent>> {
+    return getAgentByName<Env, CodeGeneratorAgent>(env.CodeGenObject, agentId, {
         // props: { readOnlyMode: true }
     });
 }
 
-export async function getAgentState(env: Env, agentId: string) : Promise<CodeGenState> {
+export async function getAgentState(env: Env, agentId: string) : Promise<AgentState> {
     const agentInstance = await getAgentStub(env, agentId);
-    return await agentInstance.getFullState() as CodeGenState;
+    return await agentInstance.getFullState() as AgentState;
 }
 
-export async function cloneAgent(env: Env, agentId: string, newUserId: string) : Promise<{newAgentId: string, newAgent: DurableObjectStub<SmartCodeGeneratorAgent>}> {
+export async function cloneAgent(env: Env, agentId: string, newUserId: string) : Promise<{newAgentId: string, newAgent: DurableObjectStub<CodeGeneratorAgent>}> {
     const agentInstance = await getAgentStub(env, agentId);
     if (!agentInstance || !await agentInstance.isInitialized()) {
         throw new Error(`Agent ${agentId} not found`);
     }
     const newAgentId = generateId();
 
-    // Fetch user model configs for the new user (same as in startCodeGeneration)
-    const modelConfigService = new ModelConfigService(env);
+	const originalState = await agentInstance.getFullState();
 
-    // Fetch all user model configs, api keys and agent instance at once
-    const [userConfigsRecord, newAgent] = await Promise.all([
-        modelConfigService.getUserModelConfigs(newUserId),
-        getAgentStub(env, newAgentId)
-    ]);
+	// Fetch user model configs for the new user (same as in startCodeGeneration)
+	const modelConfigService = new ModelConfigService(env);
 
-    // Convert Record to Map and extract only ModelConfig properties
-    const userModelConfigs = new Map();
-    for (const [actionKey, mergedConfig] of Object.entries(userConfigsRecord)) {
-        if (mergedConfig.isUserOverride) {
-            const modelConfig: ModelConfig = {
-                name: mergedConfig.name,
-                max_tokens: mergedConfig.max_tokens,
-                temperature: mergedConfig.temperature,
-                reasoning_effort: mergedConfig.reasoning_effort,
-                fallbackModel: mergedConfig.fallbackModel
-            };
-            userModelConfigs.set(actionKey, modelConfig);
-        }
-    }
+	// Fetch all user model configs, api keys and agent instance at once
+	const [userConfigsRecord, newAgent] = await Promise.all([
+		modelConfigService.getUserModelConfigs(newUserId),
+		getAgentStub(env, newAgentId, {
+			behaviorType: originalState.behaviorType,
+			projectType: originalState.projectType,
+		})
+	]);
 
-    const newInferenceContext: InferenceContext = {
-        userModelConfigs: Object.fromEntries(userModelConfigs),
-        agentId: newAgentId,
-        userId: newUserId,
-        enableRealtimeCodeFix: false, // This costs us too much, so disabled it for now
-        enableFastSmartCodeFix: false,
-    };
+	// Convert Record to Map and extract only ModelConfig properties
+	const userModelConfigs = new Map();
+	for (const [actionKey, mergedConfig] of Object.entries(userConfigsRecord)) {
+		if (mergedConfig.isUserOverride) {
+			const modelConfig: ModelConfig = {
+				name: mergedConfig.name,
+				max_tokens: mergedConfig.max_tokens,
+				temperature: mergedConfig.temperature,
+				reasoning_effort: mergedConfig.reasoning_effort,
+				fallbackModel: mergedConfig.fallbackModel
+			};
+			userModelConfigs.set(actionKey, modelConfig);
+		}
+	}
 
-    const originalState = await agentInstance.getFullState() as CodeGenState;
-    const newProjectName = generateProjectName(
-        originalState.blueprint?.projectName || originalState.templateName,
-        generateNanoId(),
-        20
-    );
-    const newState = {
+	const newInferenceContext: InferenceContext = {
+		userModelConfigs: Object.fromEntries(userModelConfigs),
+		metadata: {
+			agentId: newAgentId,
+			userId: newUserId,
+		},
+		enableRealtimeCodeFix: false, // This costs us too much, so disabled it for now
+		enableFastSmartCodeFix: false,
+	};
+
+	const newProjectName = generateProjectName(
+		originalState.blueprint?.projectName || originalState.templateName,
+		generateNanoId(),
+		20
+	);
+
+    const newState: AgentState = {
         ...originalState,
         sessionId: newAgentId,
         sandboxInstanceId: undefined,
         pendingUserInputs: [],
-        currentDevState: 0,
-        generationPromise: undefined,
         shouldBeGenerating: false,
-        // latestScreenshot: undefined,
-        clientReportedErrors: [],
-        inferenceContext: newInferenceContext,
-        projectName: newProjectName,
-    };
+        projectUpdatesAccumulator: [],
+        reviewingInitiated: false,
+        mvpGenerated: false,
+        ...(originalState.behaviorType === 'phasic' ? {
+            generatedPhases: [],
+            currentDevState: CurrentDevState.IDLE,
+        } : {}),
+		metadata: newInferenceContext.metadata,
+		projectName: newProjectName,
+    } as AgentState;
 
     await newAgent.setState(newState);
-    await newAgent.initializeFork();
-    
+    // await newAgent.initializeFork();
+
     return {newAgentId, newAgent};
 }
 
@@ -98,9 +119,23 @@ export async function getTemplateForQuery(
     env: Env,
     inferenceContext: InferenceContext,
     query: string,
+    projectType: ProjectType | 'auto',
     images: ImageAttachment[] | undefined,
     logger: StructuredLogger,
-) : Promise<{templateDetails: TemplateDetails, selection: TemplateSelection}> {
+) : Promise<{templateDetails: TemplateDetails, selection: TemplateSelection, projectType: ProjectType}> {
+    // In 'general' mode, we intentionally start from scratch without a real template
+    if (projectType === 'general') {
+        const scratch: TemplateDetails = createScratchTemplateDetails();
+        const selection: TemplateSelection = {
+            selectedTemplateName: null,
+            reasoning: 'General (from-scratch) mode: no template selected',
+            useCase: 'General',
+            complexity: 'moderate',
+            styleSelection: 'Custom',
+            projectType: 'general',
+        } as TemplateSelection; // satisfies schema shape
+        return { templateDetails: scratch, selection, projectType: 'general' };
+    }
     // Fetch available templates
     const templatesResponse = await SandboxSdkClient.listTemplates();
     if (!templatesResponse || !templatesResponse.success) {
@@ -111,6 +146,7 @@ export async function getTemplateForQuery(
         env,
         inferenceContext,
         query,
+        projectType,
         availableTemplates: templatesResponse.templates,
         images,
     });
@@ -118,8 +154,10 @@ export async function getTemplateForQuery(
     logger.info('Selected template', { selectedTemplate: analyzeQueryResponse });
 
     if (!analyzeQueryResponse.selectedTemplateName) {
-        logger.error('No suitable template found for code generation');
-        throw new Error('No suitable template found for code generation');
+        // For non-general requests when no template is selected, fall back to scratch
+        logger.warn('No suitable template found; falling back to scratch');
+        const scratch: TemplateDetails = createScratchTemplateDetails();
+        return { templateDetails: scratch, selection: analyzeQueryResponse, projectType: analyzeQueryResponse.projectType };
     }
 
     const selectedTemplate = templatesResponse.templates.find(template => template.name === analyzeQueryResponse.selectedTemplateName);
@@ -134,5 +172,5 @@ export async function getTemplateForQuery(
     }
 
     const templateDetails = templateDetailsResponse.templateDetails;
-    return { templateDetails, selection: analyzeQueryResponse };
+    return { templateDetails, selection: analyzeQueryResponse, projectType: analyzeQueryResponse.projectType };
 }

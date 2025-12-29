@@ -3,7 +3,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import type { AgentDisplayConfig, ModelConfig, UserModelConfigWithMetadata } from '@/api-types';
+import { getModelDisplayName, getProviderInfo } from '@/utils/model-helpers';
+import type { ModelConfig, UserModelConfigWithMetadata, AgentDisplayConfig } from '@/api-types';
 
 interface ConfigCardProps {
   agent: AgentDisplayConfig;
@@ -14,37 +15,6 @@ interface ConfigCardProps {
   onReset: () => void;
   isTesting: boolean;
 }
-
-// Helper function to get model display name
-const getModelDisplayName = (modelValue?: string) => {
-  if (!modelValue) return 'Default';
-  
-  return modelValue.split('/').pop() || modelValue;
-};
-
-// Helper function to get provider badge info
-const getProviderInfo = (modelValue?: string) => {
-  if (!modelValue) return { name: 'Default', color: 'bg-bg-3 text-muted-foreground/50' };
-  
-  // Check specific prefixes first to avoid incorrect matches
-  if (modelValue.includes('cerebras/')) {
-    return { name: 'Cerebras', color: 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400' };
-  }
-  if (modelValue.includes('[openrouter]')) {
-    return { name: 'OpenRouter', color: 'bg-pink-100 text-pink-800 dark:bg-pink-900/20 dark:text-pink-400' };
-  }
-  if (modelValue.includes('openai/') || modelValue.includes('gpt') || modelValue.includes('o3') || modelValue.includes('o4')) {
-    return { name: 'OpenAI', color: 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400' };
-  }
-  if (modelValue.includes('anthropic/') || modelValue.includes('claude')) {
-    return { name: 'Anthropic', color: 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400' };
-  }
-  if (modelValue.includes('google-ai-studio/') || modelValue.includes('gemini')) {
-    return { name: 'Google', color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400' };
-  }
-  
-  return { name: 'Custom', color: 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400' };
-};
 
 // Helper function to get agent icon based on type
 const getAgentIcon = (agentKey: string) => {
@@ -57,7 +27,7 @@ const getAgentIcon = (agentKey: string) => {
 // Helper function to format parameter values for display
 const formatParameterValue = (value: unknown, type: string): string | null => {
   if (value === null || value === undefined) return null;
-  
+
   switch (type) {
     case 'temperature':
       return `T: ${value}`;
@@ -107,10 +77,10 @@ export function ConfigCard({
               </p>
             </div>
           </div>
-          
+
           <div className="shrink-0">
-            <Badge 
-              variant={isCustomized ? "default" : "outline"} 
+            <Badge
+              variant={isCustomized ? "default" : "outline"}
               className="text-xs px-1.5 py-0.5 whitespace-nowrap dark:!bg-bg-1"
             >
               {isCustomized ? "Custom" : "Default"}
@@ -118,7 +88,7 @@ export function ConfigCard({
           </div>
         </div>
       </CardHeader>
-      
+
       <CardContent className="pt-0 flex-1 flex flex-col justify-between overflow-hidden">
         <div className="space-y-3 overflow-hidden">
           {/* Current Model */}
@@ -127,14 +97,14 @@ export function ConfigCard({
               <span className="text-sm font-medium flex-1 min-w-0 break-words leading-tight" title={modelDisplayName}>
                 {modelDisplayName}
               </span>
-              <Badge 
-                variant="secondary" 
+              <Badge
+                variant="secondary"
                 className={`text-xs shrink-0 px-1.5 py-0.5 mt-0.5 dark:contrast-50 ${providerInfo.color}`}
               >
                 {providerInfo.name}
               </Badge>
             </div>
-            
+
             {/* Parameter Summary - Contained within card bounds */}
             <div className="flex flex-wrap gap-1 overflow-hidden">
               {temperature !== null && temperature !== undefined ? (
@@ -151,7 +121,7 @@ export function ConfigCard({
                   </Tooltip>
                 </TooltipProvider>
               ) : null}
-              
+
               {maxTokens ? (
                 <TooltipProvider>
                   <Tooltip>
@@ -166,7 +136,7 @@ export function ConfigCard({
                   </Tooltip>
                 </TooltipProvider>
               ) : null}
-              
+
               {reasoningEffort ? (
                 <TooltipProvider>
                   <Tooltip>
@@ -184,7 +154,7 @@ export function ConfigCard({
             </div>
           </div>
         </div>
-        
+
         {/* Action Buttons - Fixed at bottom with proper containment */}
         <div className="flex gap-2 mt-3 shrink-0">
           <Button
@@ -196,7 +166,7 @@ export function ConfigCard({
             <Settings className="h-3 w-3 mr-1" />
             <span className="truncate">Configure</span>
           </Button>
-          
+
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -219,7 +189,7 @@ export function ConfigCard({
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
-          
+
           {isCustomized && (
             <TooltipProvider>
               <Tooltip>

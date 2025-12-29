@@ -1,9 +1,10 @@
-import { useState, useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { Button } from '../../../components/primitives/button';
 import { Loader, ExternalLink, Zap, Check, Globe, Lock, Share2 } from 'lucide-react';
 import clsx from 'clsx';
 import { apiClient } from '../../../lib/api-client';
 import { toast } from 'sonner';
+import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 
 interface DeploymentControlsProps {
 	// Deployment state
@@ -52,11 +53,12 @@ export function DeploymentControls({
 	onVisibilityUpdate,
 }: DeploymentControlsProps) {
 	const [isDeployButtonClicked, setIsDeployButtonClicked] = useState(false);
-	const [copyButtonText, setCopyButtonText] = useState('Copy');
-	const [shareableLinkCopyText, setShareableLinkCopyText] = useState('Copy Link');
 	const [isUpdatingVisibility, setIsUpdatingVisibility] = useState(false);
 	const [localVisibility, setLocalVisibility] = useState(appVisibility);
 	const deploymentRef = useRef<HTMLDivElement>(null);
+
+	const { copied: urlCopied, copy: copyUrl } = useCopyToClipboard();
+	const { copied: linkCopied, copy: copyLink } = useCopyToClipboard();
 
 	// Reset deployment button state when deployment completes (success or failure)
 	useEffect(() => {
@@ -318,17 +320,11 @@ export function DeploymentControls({
 								{deploymentUrl}
 							</code>
 							<Button
-								onClick={async () => {
-									if (deploymentUrl) {
-										await navigator.clipboard.writeText(deploymentUrl);
-										setCopyButtonText('Copied!');
-										setTimeout(() => setCopyButtonText('Copy'), 2000);
-									}
-								}}
+								onClick={() => deploymentUrl && copyUrl(deploymentUrl)}
 								variant="secondary"
 								className="h-8 px-4 rounded-md text-sm border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 flex-shrink-0"
 							>
-								{copyButtonText}
+								{urlCopied ? 'Copied!' : 'Copy'}
 							</Button>
 						</div>
 					</div>
@@ -345,16 +341,11 @@ export function DeploymentControls({
 									{window.location.origin}/app/{appId}
 								</code>
 								<Button
-									onClick={async () => {
-										const shareableUrl = `${window.location.origin}/app/${appId}`;
-										await navigator.clipboard.writeText(shareableUrl);
-										setShareableLinkCopyText('Copied!');
-										setTimeout(() => setShareableLinkCopyText('Copy Link'), 2000);
-									}}
+									onClick={() => copyLink(`${window.location.origin}/app/${appId}`)}
 									variant="secondary"
 									className="h-8 px-2 text-sm rounded-md border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/5 flex-shrink-0"
 								>
-									{shareableLinkCopyText}
+									{linkCopied ? 'Copied!' : 'Copy Link'}
 								</Button>
 							</div>
 						</div>

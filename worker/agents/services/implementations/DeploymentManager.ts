@@ -1,6 +1,6 @@
-import { 
-    IDeploymentManager, 
-    DeploymentParams, 
+import {
+    IDeploymentManager,
+    DeploymentParams,
     DeploymentResult,
     SandboxDeploymentCallbacks,
     CloudflareDeploymentCallbacks
@@ -14,6 +14,8 @@ import { ServiceOptions } from '../interfaces/IServiceOptions';
 import { BaseSandboxService } from 'worker/services/sandbox/BaseSandboxService';
 import { getSandboxService } from '../../../services/sandbox/factory';
 import { validateAndCleanBootstrapCommands } from 'worker/agents/utils/common';
+import { DeploymentTarget } from '../../core/types';
+import { BaseProjectState } from '../../core/state';
 
 const PER_ATTEMPT_TIMEOUT_MS = 180000;  // 3 minutes per individual attempt
 const MASTER_DEPLOYMENT_TIMEOUT_MS = 900000;  // 15 minutes total
@@ -24,17 +26,17 @@ const HEALTH_CHECK_INTERVAL_MS = 30000;
  * Handles instance creation, file deployment, analysis, and GitHub/Cloudflare export
  * Also manages sessionId and health check intervals
  */
-export class DeploymentManager extends BaseAgentService implements IDeploymentManager {
+export class DeploymentManager extends BaseAgentService<BaseProjectState> implements IDeploymentManager {
     private healthCheckInterval: ReturnType<typeof setInterval> | null = null;
     private currentDeploymentPromise: Promise<PreviewType | null> | null = null;
     private cachedSandboxClient: BaseSandboxService | null = null;
 
     constructor(
-        options: ServiceOptions,
-        private maxCommandsHistory: number
+        options: ServiceOptions<BaseProjectState>,
+        private maxCommandsHistory: number,
     ) {
         super(options);
-        
+
         // Ensure state has sessionId
         const state = this.getState();
         if (!state.sessionId) {
@@ -58,13 +60,13 @@ export class DeploymentManager extends BaseAgentService implements IDeploymentMa
     public getClient(): BaseSandboxService {
         if (!this.cachedSandboxClient) {
             const logger = this.getLog();
-            logger.info('Creating sandbox service client', { 
-                sessionId: this.getSessionId(), 
+            logger.info('Creating sandbox service client', {
+                sessionId: this.getSessionId(),
                 agentId: this.getAgentId(),
                 userId: this.getUserId()
             });
             this.cachedSandboxClient = getSandboxService(
-                this.getSessionId(), 
+                this.getSessionId(),
                 this.getAgentId(),
                 this.getUserId()
             );
@@ -80,16 +82,16 @@ export class DeploymentManager extends BaseAgentService implements IDeploymentMa
         const state = this.getState();
         const oldSessionId = state.sessionId;
         const newSessionId = DeploymentManager.generateNewSessionId();
-        
+
         logger.info(`SessionId reset: ${oldSessionId} → ${newSessionId}`);
-        
+
         // Reset session ID in logger
         logger.setFields({
             sessionId: newSessionId,
         });
         // Invalidate cached sandbox client (tied to old sessionId)
         this.cachedSandboxClient = null;
-        
+
         // Update state
         this.setState({
             ...state,
@@ -108,13 +110,13 @@ export class DeploymentManager extends BaseAgentService implements IDeploymentMa
     async waitForPreview(): Promise<void> {
         const state = this.getState();
         const logger = this.getLog();
-        
+
         logger.info("Waiting for preview");
-        
+
         if (!state.sandboxInstanceId) {
             logger.info("No sandbox instance, will create during next deploy");
         }
-        
+
         logger.info("Waiting for preview completed");
     }
 
@@ -123,24 +125,24 @@ export class DeploymentManager extends BaseAgentService implements IDeploymentMa
      * @param onAfterCommands Optional callback invoked after commands complete (e.g., for syncing package.json)
      */
     async executeSetupCommands(
-        sandboxInstanceId: string, 
+        sandboxInstanceId: string,
         timeoutMs: number = 180000,
         onAfterCommands?: () => Promise<void>
     ): Promise<void> {
         const { commandsHistory } = this.getState();
         const logger = this.getLog();
         const client = this.getClient();
-        
+
         if (!commandsHistory || commandsHistory.length === 0) {
             return;
         }
 
         // CRITICAL: Audit bootstrap commands before execution (safety net)
         const { validCommands, invalidCommands } = validateAndCleanBootstrapCommands(
-            commandsHistory, 
+            commandsHistory,
             this.maxCommandsHistory
         );
-        
+
         if (invalidCommands.length > 0) {
             logger.warn('[commands] DANGEROUS COMMANDS DETECTED IN BOOTSTRAP - FILTERED OUT', {
                 dangerous: invalidCommands,
@@ -148,7 +150,7 @@ export class DeploymentManager extends BaseAgentService implements IDeploymentMa
                 validCount: validCommands.length
             });
         }
-        
+
         if (validCommands.length === 0) {
             logger.warn('[commands] No valid commands to execute after filtering');
             return;
@@ -161,9 +163,9 @@ export class DeploymentManager extends BaseAgentService implements IDeploymentMa
             timeoutMs,
             'Command execution timed out'
         );
-        
+
         logger.info('Setup commands executed successfully');
-        
+
         // Invoke callback if provided (e.g., for package.json sync)
         if (onAfterCommands) {
             logger.info('Invoking post-command callback');
@@ -176,21 +178,21 @@ export class DeploymentManager extends BaseAgentService implements IDeploymentMa
      */
     private startHealthCheckInterval(instanceId: string): void {
         const logger = this.getLog();
-        
+
         // Clear any existing interval
         this.clearHealthCheckInterval();
-        
+
         logger.info(`Starting health check interval for instance ${instanceId}`);
-        
+
         this.healthCheckInterval = setInterval(async () => {
             try {
                 const client = this.getClient();
                 const status = await client.getInstanceStatus(instanceId);
-                
+
                 if (!status.success || !status.isHealthy) {
                     logger.warn(`Instance ${instanceId} unhealthy, triggering redeploy`);
                     this.clearHealthCheckInterval();
-                    
+
                     // Trigger redeploy to recover from unhealthy state
                     try {
                         await this.deployToSandbox();
@@ -271,13 +273,13 @@ export class DeploymentManager extends BaseAgentService implements IDeploymentMa
         const client = this.getClient();
 
         const resp = await client.getInstanceErrors(sandboxInstanceId, clear);
-            
+
         if (!resp || !resp.success) {
             throw new Error(`Failed to fetch runtime errors: ${resp?.error || 'Unknown error'}`);
         }
 
-        let errors = resp.errors || [];
-            
+        const errors = resp.errors || [];
+
         if (errors.length > 0) {
             logger.info(`Found ${errors.length} runtime errors: ${errors.map(e => e.message).join(', ')}`);
         }
@@ -299,7 +301,7 @@ export class DeploymentManager extends BaseAgentService implements IDeploymentMa
         callbacks?: SandboxDeploymentCallbacks
     ): Promise<PreviewType | null> {
         const logger = this.getLog();
-        
+
         // All concurrent callers wait on the same promise
         if (this.currentDeploymentPromise) {
             logger.info('Deployment already in progress, waiting for completion');
@@ -355,11 +357,11 @@ export class DeploymentManager extends BaseAgentService implements IDeploymentMa
         const logger = this.getLog();
         let attempt = 0;
         const maxAttemptsBeforeSessionReset = 3;
-        
+
         while (true) {
             attempt++;
             logger.info(`Deployment attempt ${attempt}`, { sessionId: this.getSessionId() });
-            
+
             try {
                 // Callback: deployment starting (only on first attempt)
                 callbacks?.onStarted?.({
@@ -374,7 +376,7 @@ export class DeploymentManager extends BaseAgentService implements IDeploymentMa
                     commitMessage,
                     clearLogs
                 });
-                
+
                 const result = await this.withTimeout(
                     deployPromise,
                     PER_ATTEMPT_TIMEOUT_MS,
@@ -408,26 +410,26 @@ export class DeploymentManager extends BaseAgentService implements IDeploymentMa
 
                 logger.info('Deployment succeeded', { attempt, sessionId: this.getSessionId() });
                 return preview;
-                
+
             } catch (error) {
                 logger.warn(`Deployment attempt ${attempt} failed:`, error);
-                
+
                 const errorMsg = error instanceof Error ? error.message : String(error);
 
                 // Handle specific errors that require session reset
-                if (errorMsg.includes('Network connection lost') || 
-                    errorMsg.includes('Container service disconnected') || 
+                if (errorMsg.includes('Network connection lost') ||
+                    errorMsg.includes('Container service disconnected') ||
                     errorMsg.includes('Internal error in Durable Object storage')) {
                     logger.warn('Session-level error detected, resetting sessionId');
                     this.resetSessionId();
                 }
-                
+
                 // After consecutive failures, reset session to get fresh sandbox
                 if (attempt % maxAttemptsBeforeSessionReset === 0) {
                     logger.warn(`${attempt} consecutive failures, resetting sessionId for fresh sandbox`);
                     this.resetSessionId();
                 }
-                
+
                 // Clear instance ID from state
                 this.setState({
                     ...this.getState(),
@@ -437,12 +439,12 @@ export class DeploymentManager extends BaseAgentService implements IDeploymentMa
                 callbacks?.onError?.({
                     error: `Deployment attempt ${attempt} failed: ${errorMsg}`
                 });
-                
+
                 // Exponential backoff before retry (capped at 30 seconds)
                 const backoffMs = Math.min(1000 * Math.pow(2, Math.min(attempt - 1, 5)), 30000);
                 logger.info(`Retrying deployment in ${backoffMs}ms...`);
                 await new Promise(resolve => setTimeout(resolve, backoffMs));
-                
+
                 // Loop continues - retry indefinitely until master timeout
             }
         }
@@ -455,7 +457,7 @@ export class DeploymentManager extends BaseAgentService implements IDeploymentMa
     private async deploy(params: DeploymentParams): Promise<DeploymentResult> {
         const { files, redeploy, commitMessage, clearLogs } = params;
         const logger = this.getLog();
-        
+
         logger.info("Deploying code to sandbox service");
 
         // Ensure instance exists and is healthy
@@ -472,7 +474,7 @@ export class DeploymentManager extends BaseAgentService implements IDeploymentMa
                 filesToWrite,
                 commitMessage
             );
-            
+
             if (!writeResponse || !writeResponse.success) {
                 logger.error(`File writing failed. Error: ${writeResponse?.error}`);
                 throw new Error(`File writing failed. Error: ${writeResponse?.error}`);
@@ -554,7 +556,6 @@ export class DeploymentManager extends BaseAgentService implements IDeploymentMa
      */
     private async createNewInstance(): Promise<BootstrapResponse | null> {
         const state = this.getState();
-        const templateName = state.templateName;
         const projectName = state.projectName;
 
         // Add AI proxy vars if AI template
@@ -565,25 +566,32 @@ export class DeploymentManager extends BaseAgentService implements IDeploymentMa
                 localEnvVars = {
                     "CF_AI_BASE_URL": generateAppProxyUrl(this.env),
                     "CF_AI_API_KEY": await generateAppProxyToken(
-                        state.inferenceContext.agentId,
-                        state.inferenceContext.userId,
+                        state.metadata.agentId,
+                        state.metadata.userId,
                         this.env
                     )
                 };
             }
         }
-        
+
+        // Get latest files
+        const files = this.fileManager.getAllFiles();
+
+        this.getLog().info('Files to deploy', {
+            files: files.map(f => f.filePath)
+        });
+
         // Create instance
         const client = this.getClient();
         const logger = this.getLog();
-        
-        const createResponse = await client.createInstance(
-            templateName,
+
+        const createResponse = await client.createInstance({
+            files,
             projectName,
-            undefined,
-            localEnvVars
-        );
-        
+            initCommand: 'bun run dev',
+            envVars: localEnvVars
+        });
+
         if (!createResponse || !createResponse.success || !createResponse.runId) {
             throw new Error(`Failed to create sandbox instance: ${createResponse?.error || 'Unknown error'}`);
         }
@@ -608,7 +616,7 @@ export class DeploymentManager extends BaseAgentService implements IDeploymentMa
         redeployed: boolean
     ): Array<{ filePath: string; fileContents: string }> {
         const state = this.getState();
-        
+
         // If no files requested or redeploying, use all generated files from state
         if (!requestedFiles || requestedFiles.length === 0 || redeployed) {
             requestedFiles = Object.values(state.generatedFilesMap);
@@ -619,24 +627,29 @@ export class DeploymentManager extends BaseAgentService implements IDeploymentMa
             fileContents: file.fileContents
         }));
     }
-    
+
     /**
      * Deploy to Cloudflare Workers
      * Returns deployment URL and deployment ID for database updates
      */
-    async deployToCloudflare(callbacks?: CloudflareDeploymentCallbacks): Promise<{ deploymentUrl: string | null; deploymentId?: string }> {
+    async deployToCloudflare(request?: {
+        target?: DeploymentTarget;
+        callbacks?: CloudflareDeploymentCallbacks;
+    }): Promise<{ deploymentUrl: string | null; deploymentId?: string }> {
         const state = this.getState();
         const logger = this.getLog();
         const client = this.getClient();
-        
+        const target = request?.target ?? 'platform';
+        const callbacks = request?.callbacks;
+
         await this.waitForPreview();
-        
+
         callbacks?.onStarted?.({
             message: 'Starting deployment to Cloudflare Workers...',
             instanceId: state.sandboxInstanceId ?? ''
         });
-        
-        logger.info('Starting Cloudflare deployment');
+
+        logger.info('Starting Cloudflare deployment', { target });
 
         // Check if we have generated files
         if (!state.generatedFilesMap || Object.keys(state.generatedFilesMap).length === 0) {
@@ -662,7 +675,8 @@ export class DeploymentManager extends BaseAgentService implements IDeploymentMa
 
         // Deploy to Cloudflare
         const deploymentResult = await client.deployToCloudflareWorkers(
-            state.sandboxInstanceId
+            state.sandboxInstanceId,
+            target
         );
 
         logger.info('Deployment result:', deploymentResult);
@@ -674,10 +688,10 @@ export class DeploymentManager extends BaseAgentService implements IDeploymentMa
             });
 
             // Check for preview expired error
-            if (deploymentResult?.error?.includes('Failed to read instance metadata') || 
+            if (deploymentResult?.error?.includes('Failed to read instance metadata') ||
                 deploymentResult?.error?.includes(`/bin/sh: 1: cd: can't cd to i-`)) {
                 logger.error('Deployment sandbox died - preview expired');
-                callbacks?.onPreviewExpired?.();
+                this.deployToSandbox();
             } else {
                 callbacks?.onError?.({
                     message: `Deployment failed: ${deploymentResult?.message || 'Unknown error'}`,
@@ -685,7 +699,7 @@ export class DeploymentManager extends BaseAgentService implements IDeploymentMa
                     error: deploymentResult?.error || 'Unknown deployment error'
                 });
             }
-            
+
             return { deploymentUrl: null };
         }
 
@@ -704,7 +718,7 @@ export class DeploymentManager extends BaseAgentService implements IDeploymentMa
             deploymentUrl: deploymentUrl || ''
         });
 
-        return { 
+        return {
             deploymentUrl: deploymentUrl || null,
             deploymentId: deploymentId
         };

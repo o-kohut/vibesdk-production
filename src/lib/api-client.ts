@@ -38,9 +38,6 @@ import type{
 	CreateProviderRequest,
 	UpdateProviderRequest,
 	TestProviderRequest,
-	SecretsData,
-	SecretStoreData,
-	SecretDeleteData,
 	SecretTemplatesData,
 	AgentConnectionData,
 	AgentStreamingResponse,
@@ -53,17 +50,19 @@ import type{
 	AuthProvidersResponseData,
 	CsrfTokenResponseData,
 	OAuthProvider,
-    CodeGenArgs,
-    AgentPreviewResponse,
-    PlatformStatusData,
-    RateLimitError,
-    ForkAppData
+	CodeGenArgs,
+	AgentPreviewResponse,
+	PlatformStatusData,
+	RateLimitError,
+	CapabilitiesData,
+	VaultConfigResponse,
+	VaultStatusResponse,
+	ForkAppData
 } from '@/api-types';
 import {
-    
-    RateLimitExceededError,
-    SecurityError,
-    SecurityErrorType,
+	RateLimitExceededError,
+	SecurityError,
+	SecurityErrorType,
 } from '@/api-types';
 import { toast } from 'sonner';
 
@@ -193,7 +192,7 @@ class ApiClient {
 				method: 'GET',
 				credentials: 'include',
 			});
-			
+
 			if (response.ok) {
 				const data: ApiResponse<CsrfTokenResponseData> = await response.json();
 				if (data.data?.token) {
@@ -236,12 +235,12 @@ class ApiClient {
 		if (!['POST', 'PUT', 'DELETE', 'PATCH'].includes(method.toUpperCase())) {
 			return true;
 		}
-		
+
 		// Fetch new token if none exists or current one is expired
 		if (!this.csrfTokenInfo || this.isCSRFTokenExpired()) {
 			return await this.fetchCsrfToken();
 		}
-		
+
 		return true;
 	}
 
@@ -311,7 +310,7 @@ class ApiClient {
         noToast: boolean = false,
 	): Promise<{ response: Response; data: ApiResponse<T> | null }> {
 		this.ensureSessionToken();
-		
+
 		if (!await this.ensureCsrfToken(options.method || 'GET')) {
 			throw new ApiError(
 				500,
@@ -341,12 +340,12 @@ class ApiClient {
 
 		try {
 			const response = await fetch(url, config);
-			
+
 			// For streaming responses, skip JSON parsing if response is ok
 			if (options.skipJsonParsing && response.ok) {
 				return { response, data: null };
 			}
-			
+
 			const data = await response.json() as ApiResponse<T>;
 
 			if (!response.ok) {
@@ -414,6 +413,17 @@ class ApiClient {
 
 	async getPlatformStatus(noToast: boolean = true): Promise<ApiResponse<PlatformStatusData>> {
 		return this.request<PlatformStatusData>('/api/status', undefined, noToast);
+	}
+
+	// ===============================
+	// Platform Capabilities API Methods
+	// ===============================
+
+	/**
+	 * Get platform capabilities including available features
+	 */
+	async getCapabilities(noToast: boolean = true): Promise<ApiResponse<CapabilitiesData>> {
+		return this.request<CapabilitiesData>('/api/capabilities', undefined, noToast);
 	}
 
 	// ===============================
@@ -581,19 +591,24 @@ class ApiClient {
 
 	async createAgentSession(args: CodeGenArgs): Promise<AgentStreamingResponse> {
 		try {
-			const { response, data } = await this.requestRaw('/api/agent', {
-				method: 'POST',
-				body: args,
-				skipJsonParsing: true, // Don't parse JSON for streaming response
-			});
-			
+			const { response, data } = await this.requestRaw(
+				'/api/agent',
+				{
+					method: 'POST',
+					body: args,
+					skipJsonParsing: true, // Don't parse JSON for streaming response
+				},
+				false,
+				true,
+			);
+
 			// Check if response is ok
 			if (!response.ok) {
 				// Parse error response if available
 				const errorMessage = data?.error?.message || `Agent creation failed with status: ${response.status}`;
 				throw new Error(errorMessage);
 			}
-			
+
 			return {
 				success: true,
 				stream: response
@@ -602,7 +617,7 @@ class ApiClient {
 			// Handle any network or parsing errors
 			const errorMessage = error instanceof Error ? error.message : 'Failed to create agent session';
 			toast.error(errorMessage);
-			
+
             throw new Error(errorMessage);
 		}
 	}
@@ -876,59 +891,45 @@ class ApiClient {
 	// ===============================
 
 	/**
-	 * Get all user secrets including inactive ones
+	 * Get secret templates for BYOK providers
 	 */
-	async getAllSecrets(): Promise<ApiResponse<SecretsData>> {
-		return this.request<SecretsData>('/api/secrets');
+	async getSecretTemplates(): Promise<ApiResponse<SecretTemplatesData>> {
+		return this.request<SecretTemplatesData>('/api/secrets/templates');
 	}
 
-	/**
-	 * Store a new secret
-	 */
-	async storeSecret(data: {
-		templateId?: string;
-		name?: string;
-		envVarName?: string;
-		value: string;
-		environment?: string;
-		description?: string;
-	}): Promise<ApiResponse<SecretStoreData>> {
-		return this.request<SecretStoreData>('/api/secrets', {
+	// ===============================
+	// Vault API Methods
+	// ===============================
+
+	async getVaultStatus(): Promise<ApiResponse<VaultStatusResponse>> {
+		return this.request<VaultStatusResponse>('/api/vault/status');
+	}
+
+	async getVaultConfig(): Promise<ApiResponse<{ config: VaultConfigResponse }>> {
+		return this.request<{ config: VaultConfigResponse }>('/api/vault/config');
+	}
+
+	async setupVault(data: {
+		kdfAlgorithm: 'argon2id' | 'webauthn-prf';
+		kdfSalt: string;
+		kdfParams?: { time: number; mem: number; parallelism: number };
+		prfCredentialId?: string;
+		prfSalt?: string;
+		encryptedRecoveryCodes?: string;
+		recoveryCodesNonce?: string;
+		verificationBlob: string;
+		verificationNonce: string;
+	}): Promise<ApiResponse<{ success: boolean }>> {
+		return this.request<{ success: boolean }>('/api/vault/setup', {
 			method: 'POST',
 			body: data,
 		});
 	}
 
-	/**
-	 * Delete a secret
-	 */
-	async deleteSecret(
-		secretId: string,
-	): Promise<ApiResponse<SecretDeleteData>> {
-		return this.request<SecretDeleteData>(`/api/secrets/${secretId}`, {
-			method: 'DELETE',
+	async resetVault(): Promise<ApiResponse<{ success: boolean }>> {
+		return this.request<{ success: boolean }>('/api/vault/reset', {
+			method: 'POST',
 		});
-	}
-
-	/**
-	 * Toggle secret active status
-	 */
-	async toggleSecret(
-		secretId: string,
-	): Promise<ApiResponse<SecretStoreData>> {
-		return this.request<SecretStoreData>(
-			`/api/secrets/${secretId}/toggle`,
-			{
-				method: 'PATCH',
-			},
-		);
-	}
-
-	/**
-	 * Get secret templates
-	 */
-	async getSecretTemplates(): Promise<ApiResponse<SecretTemplatesData>> {
-		return this.request<SecretTemplatesData>('/api/secrets/templates');
 	}
 
 	/**
@@ -949,7 +950,7 @@ class ApiClient {
 		description?: string;
 		isPrivate?: boolean;
 		agentId: string;
-	}): Promise<ApiResponse<{ 
+	}): Promise<ApiResponse<{
 		authUrl?: string;
 		success?: boolean;
 		repositoryUrl?: string;

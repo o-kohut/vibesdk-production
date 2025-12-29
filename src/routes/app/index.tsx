@@ -3,6 +3,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router';
 import type { AppDetailsData, FileType } from '@/api-types';
 import { apiClient, ApiError } from '@/lib/api-client';
 import { appEvents } from '@/lib/app-events';
+import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard';
 import {
 	Star,
 	Eye,
@@ -90,7 +91,9 @@ export default function AppView() {
 	const [error, setError] = useState<string | null>(null);
 	const [isFavorited, setIsFavorited] = useState(false);
 	const [isStarred, setIsStarred] = useState(false);
-	const [copySuccess, setCopySuccess] = useState(false);
+	const { copied: urlCopied, copy: copyUrl } = useCopyToClipboard();
+	const { copy: copyFile } = useCopyToClipboard({ successMessage: 'Code copied to clipboard' });
+	const { copy: copyPrompt } = useCopyToClipboard({ successMessage: 'Prompt copied to clipboard' });
 	const [activeTab, setActiveTab] = useState('preview');
 	const [isDeploying, setIsDeploying] = useState(false);
 	const [deploymentProgress, setDeploymentProgress] = useState<string>('');
@@ -374,10 +377,7 @@ export default function AppView() {
 
 	const handleCopyUrl = () => {
 		if (!appUrl) return;
-
-		navigator.clipboard.writeText(appUrl);
-		setCopySuccess(true);
-		setTimeout(() => setCopySuccess(false), 2000);
+		copyUrl(appUrl);
 	};
 
 	const getAppUrl = () => {
@@ -794,18 +794,18 @@ export default function AppView() {
 												size="sm"
 												onClick={handleCopyUrl}
 												className="gap-2"
-											>
-												{copySuccess ? (
-													<>
-														<Check className="h-3 w-3" />
-														Copied!
-													</>
-												) : (
-													<>
-														<Copy className="h-3 w-3" />
-													</>
-												)}
-											</Button>
+															>
+																{urlCopied ? (
+																	<>
+																		<Check className="h-3 w-3" />
+																		Copied!
+																	</>
+																) : (
+																	<>
+																		<Copy className="h-3 w-3" />
+																	</>
+																)}
+															</Button>
 											<Button
 												variant="ghost"
 												size="sm"
@@ -908,16 +908,11 @@ export default function AppView() {
 									{activeFile && (
 										<Button
 											variant="ghost"
-											size="sm"
-											onClick={() => {
-												navigator.clipboard.writeText(
-													activeFile.fileContents,
-												);
-												toast.success(
-													'Code copied to clipboard',
-												);
-											}}
-											className="gap-2"
+																			size="sm"
+																			onClick={() => {
+																			void copyFile(activeFile.fileContents);
+																		}}
+																			className="gap-2"
 										>
 											<Copy className="h-3 w-3" />
 											Copy File
@@ -1063,10 +1058,10 @@ export default function AppView() {
 												size="sm"
 												onClick={() => {
 													const prompt = app?.agentSummary?.query || app?.originalPrompt;
-													if (prompt) {
-														navigator.clipboard.writeText(prompt);
-														toast.success('Prompt copied to clipboard');
-													}
+																		if (prompt) {
+																			void copyPrompt(prompt);
+																		}
+
 												}}
 												className="gap-2"
 											>

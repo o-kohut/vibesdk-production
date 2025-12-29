@@ -6,20 +6,21 @@ import { AuthService } from '../../../database/services/AuthService';
 import { SessionService } from '../../../database/services/SessionService';
 import { UserService } from '../../../database/services/UserService';
 import { ApiKeyService } from '../../../database/services/ApiKeyService';
-import { generateApiKey } from '../../../utils/cryptoUtils';
-import { 
-    loginSchema, 
-    registerSchema, 
+import { generateApiKey, sha256Hash } from '../../../utils/cryptoUtils';
+import {
+    loginSchema,
+    registerSchema,
     oauthProviderSchema
 } from './authSchemas';
 import { SecurityError, SecurityErrorType } from 'shared/types/errors';
-import { 
+import {
     formatAuthResponse,
-    mapUserResponse, 
-    setSecureAuthCookies, 
-    clearAuthCookies, 
-    extractSessionId
+    mapUserResponse,
+    setSecureAuthCookies,
+	clearAuthCookies,
+	extractSessionId
 } from '../../../utils/authUtils';
+import { JWTUtils } from '../../../utils/jwtUtils';
 import { RouteContext } from '../../types/route-context';
 import { authMiddleware } from '../../../middleware/auth/auth';
 import { CsrfService } from '../../../services/csrf/CsrfService';
@@ -34,11 +35,11 @@ export class AuthController extends BaseController {
      * Check if OAuth providers are configured
      */
     static hasOAuthProviders(env: Env): boolean {
-        return (!!env.GOOGLE_CLIENT_ID && !!env.GOOGLE_CLIENT_SECRET) || 
+        return (!!env.GOOGLE_CLIENT_ID && !!env.GOOGLE_CLIENT_SECRET) ||
                (!!env.GITHUB_CLIENT_ID && !!env.GITHUB_CLIENT_SECRET) ||
                (!!env.CROWDIN_CLIENT_ID && !!env.CROWDIN_CLIENT_SECRET);
     }
-    
+
     /**
      * Register a new user
      * POST /api/auth/register
@@ -66,34 +67,34 @@ export class AuthController extends BaseController {
                     403
                 );
             }
-            
+
             const authService = new AuthService(env);
             const result = await authService.register(validatedData, request);
-            
+
             const response = AuthController.createSuccessResponse(
                 formatAuthResponse(result.user, result.sessionId, result.expiresAt)
             );
-            
+
             setSecureAuthCookies(response, {
                 accessToken: result.accessToken,
                 accessTokenExpiry: SessionService.config.sessionTTL
             });
-            
+
             // Rotate CSRF token on successful registration if configured
             if (CsrfService.defaults.rotateOnAuth) {
                 CsrfService.rotateToken(response);
             }
-            
+
             return response;
         } catch (error) {
             if (error instanceof SecurityError) {
                 return AuthController.createErrorResponse(error.message, error.statusCode);
             }
-            
+
             return AuthController.handleError(error, 'register user');
         }
     }
-    
+
     /**
      * Login with email and password
      * POST /api/auth/login
@@ -121,34 +122,34 @@ export class AuthController extends BaseController {
                     403
                 );
             }
-            
+
             const authService = new AuthService(env);
             const result = await authService.login(validatedData, request);
-            
+
             const response = AuthController.createSuccessResponse(
                 formatAuthResponse(result.user, result.sessionId, result.expiresAt)
             );
-            
+
             setSecureAuthCookies(response, {
                 accessToken: result.accessToken,
                 accessTokenExpiry: SessionService.config.sessionTTL
             });
-            
+
             // Rotate CSRF token on successful login if configured
             if (CsrfService.defaults.rotateOnAuth) {
                 CsrfService.rotateToken(response);
             }
-            
+
             return response;
         } catch (error) {
             if (error instanceof SecurityError) {
                 return AuthController.createErrorResponse(error.message, error.statusCode);
             }
-            
+
             return AuthController.handleError(error, 'login user');
         }
     }
-    
+
     /**
      * Logout current user
      * POST /api/auth/logout
@@ -167,35 +168,35 @@ export class AuthController extends BaseController {
 					);
 				}
 			}
-                        
-            const response = AuthController.createSuccessResponse({ 
-                success: true, 
-                message: 'Logged out successfully' 
+
+            const response = AuthController.createSuccessResponse({
+                success: true,
+                message: 'Logged out successfully'
             });
-            
+
             clearAuthCookies(response);
-            
+
             // Clear CSRF token on logout
             CsrfService.clearTokenCookie(response);
-            
+
             return response;
         } catch (error) {
             this.logger.error('Logout failed', error);
-            
-            const response = AuthController.createSuccessResponse({ 
-                success: true, 
-                message: 'Logged out' 
+
+            const response = AuthController.createSuccessResponse({
+                success: true,
+                message: 'Logged out'
             });
-            
+
             clearAuthCookies(response);
-            
+
             // Clear CSRF token on logout
             CsrfService.clearTokenCookie(response);
-            
+
             return response;
         }
     }
-    
+
     /**
      * Get current user profile
      * GET /api/auth/profile
@@ -213,7 +214,7 @@ export class AuthController extends BaseController {
             return AuthController.handleError(error, 'get profile');
         }
     }
-    
+
     /**
      * Update user profile
      * PUT /api/auth/profile
@@ -224,7 +225,7 @@ export class AuthController extends BaseController {
             if (!user) {
                 return AuthController.createErrorResponse('Unauthorized', 401);
             }
-            
+
             const bodyResult = await AuthController.parseJsonBody<{
                 displayName?: string;
                 username?: string;
@@ -232,21 +233,21 @@ export class AuthController extends BaseController {
                 theme?: 'light' | 'dark' | 'system';
                 timezone?: string;
             }>(request);
-            
+
             if (!bodyResult.success) {
                 return bodyResult.response!;
             }
-            
+
             const updateData = bodyResult.data!;
             const userService = new UserService(env);
-            
+
             if (updateData.username) {
                 const isAvailable = await userService.isUsernameAvailable(updateData.username, user.id);
                 if (!isAvailable) {
                     return AuthController.createErrorResponse('Username already taken', 400);
                 }
             }
-            
+
             await userService.updateUserProfile(user.id, {
                 displayName: updateData.displayName,
                 username: updateData.username,
@@ -254,13 +255,13 @@ export class AuthController extends BaseController {
                 avatarUrl: undefined,
                 timezone: updateData.timezone
             });
-            
+
             const updatedUser = await userService.findUser({ id: user.id });
-            
+
             if (!updatedUser) {
                 return AuthController.createErrorResponse('User not found', 404);
             }
-            
+
             return AuthController.createSuccessResponse({
                 user: mapUserResponse(updatedUser),
                 message: 'Profile updated successfully'
@@ -269,7 +270,7 @@ export class AuthController extends BaseController {
             return AuthController.handleError(error, 'update profile');
         }
     }
-    
+
     /**
      * Initiate OAuth flow
      * GET /api/auth/oauth/:provider
@@ -277,29 +278,29 @@ export class AuthController extends BaseController {
     static async initiateOAuth(request: Request, env: Env, _ctx: ExecutionContext, routeContext: RouteContext): Promise<Response> {
         try {
             const validatedProvider = oauthProviderSchema.parse(routeContext.pathParams.provider);
-            
+
             // Get intended redirect URL from query parameter
             const intendedRedirectUrl = routeContext.queryParams.get('redirect_url') || undefined;
-            
+
             const authService = new AuthService(env);
             const authUrl = await authService.getOAuthAuthorizationUrl(
                 validatedProvider,
                 request,
                 intendedRedirectUrl
             );
-            
+
             return Response.redirect(authUrl, 302);
         } catch (error) {
             this.logger.error('OAuth initiation failed', error);
-            
+
             if (error instanceof SecurityError) {
                 return AuthController.createErrorResponse(error.message, error.statusCode);
             }
-            
+
             return AuthController.handleError(error, 'initiate OAuth');
         }
     }
-    
+
     /**
      * Handle OAuth callback
      * GET /api/auth/callback/:provider
@@ -307,22 +308,22 @@ export class AuthController extends BaseController {
     static async handleOAuthCallback(request: Request, env: Env, _ctx: ExecutionContext, routeContext: RouteContext): Promise<Response> {
         try {
             const validatedProvider = oauthProviderSchema.parse(routeContext.pathParams.provider);
-            
+
             const code = routeContext.queryParams.get('code');
             const state = routeContext.queryParams.get('state');
             const error = routeContext.queryParams.get('error');
-            
+
             if (error) {
                 this.logger.error('OAuth provider returned error', { provider: validatedProvider, error });
                 const baseUrl = new URL(request.url).origin;
                 return Response.redirect(`${baseUrl}/?error=oauth_failed`, 302);
             }
-            
+
             if (!code || !state) {
                 const baseUrl = new URL(request.url).origin;
                 return Response.redirect(`${baseUrl}/?error=missing_params`, 302);
             }
-            
+
             const authService = new AuthService(env);
             const result = await authService.handleOAuthCallback(
                 validatedProvider,
@@ -330,12 +331,12 @@ export class AuthController extends BaseController {
                 state,
                 request
             );
-            
+
             const baseUrl = new URL(request.url).origin;
-            
+
             // Use stored redirect URL or default to home page
             const redirectLocation = result.redirectUrl || `${baseUrl}/`;
-            
+
             // Create redirect response with secure auth cookies
             const response = new Response(null, {
                 status: 302,
@@ -343,21 +344,21 @@ export class AuthController extends BaseController {
                     'Location': redirectLocation
                 }
             });
-            
+
             setSecureAuthCookies(response, {
                 accessToken: result.accessToken,
             });
-            
+
             return response;
         } catch (error) {
             this.logger.error('OAuth callback failed', error);
             const baseUrl = new URL(request.url).origin;
-            
+
             // Handle email not whitelisted error - redirect to access-denied page
             if (error instanceof SecurityError && error.type === SecurityErrorType.EMAIL_NOT_WHITELISTED) {
                 return Response.redirect(`${baseUrl}/access-denied`, 302);
             }
-            
+
             return Response.redirect(`${baseUrl}/?error=auth_failed`, 302);
         }
     }
@@ -370,14 +371,14 @@ export class AuthController extends BaseController {
         try {
             // Use the same middleware authentication logic but don't require auth
             const userSession = await authMiddleware(request, env);
-            
+
             if (!userSession) {
                 return AuthController.createSuccessResponse({
                     authenticated: false,
                     user: null
                 });
             }
-            
+
             return AuthController.createSuccessResponse({
                 authenticated: true,
                 user: {
@@ -432,7 +433,7 @@ export class AuthController extends BaseController {
             const sessionIdToRevoke = routeContext.pathParams.sessionId;
 
             const sessionService = new SessionService(env);
-            
+
             await sessionService.revokeUserSession(sessionIdToRevoke, user.id);
 
             return AuthController.createSuccessResponse({
@@ -472,6 +473,9 @@ export class AuthController extends BaseController {
         }
     }
 
+    // Maximum number of API keys a user can create
+    private static readonly MAX_API_KEYS_PER_USER = 25;
+
     /**
      * Create a new API key
      * POST /api/auth/api-keys
@@ -496,9 +500,17 @@ export class AuthController extends BaseController {
 
             const sanitizedName = name.trim().substring(0, 100);
 
-            const { key, keyHash, keyPreview } = await generateApiKey();
-            
+            // Check if user has reached the maximum number of API keys
             const apiKeyService = new ApiKeyService(env);
+            const activeKeyCount = await apiKeyService.getActiveApiKeyCount(user.id);
+            if (activeKeyCount >= AuthController.MAX_API_KEYS_PER_USER) {
+                return AuthController.createErrorResponse(
+                    `Maximum of ${AuthController.MAX_API_KEYS_PER_USER} API keys allowed. Please revoke an existing key before creating a new one.`,
+                    400
+                );
+            }
+
+            const { key, keyHash, keyPreview } = await generateApiKey();
             await apiKeyService.createApiKey({
                 userId: user.id,
                 name: sanitizedName,
@@ -530,8 +542,8 @@ export class AuthController extends BaseController {
                 return AuthController.createErrorResponse('Unauthorized', 401);
             }
 
-            const keyId = routeContext.pathParams.keyId;            
-            
+            const keyId = routeContext.pathParams.keyId;
+
             const apiKeyService = new ApiKeyService(env);
             await apiKeyService.revokeApiKey(keyId, user.id);
 
@@ -542,6 +554,91 @@ export class AuthController extends BaseController {
             });
         } catch (error) {
             return AuthController.handleError(error, 'revoke API key');
+        }
+    }
+
+    /**
+     * Exchange API key for a short-lived access token.
+     * POST /api/auth/exchange-api-key
+     *
+     * Security notes:
+     * - Does not create a D1 session row.
+     * - Accepts API key only via Authorization Bearer or X-API-Key.
+     * - Performs basic format/size checks to reduce abuse.
+     */
+    static async exchangeApiKey(request: Request, env: Env, _ctx: ExecutionContext, _routeContext: RouteContext): Promise<Response> {
+        try {
+            const authHeader = request.headers.get('Authorization')?.trim();
+            const xApiKey = request.headers.get('X-API-Key')?.trim();
+
+            let apiKeyRaw: string | null = null;
+            if (authHeader && authHeader.toLowerCase().startsWith('bearer ')) {
+                apiKeyRaw = authHeader.slice('bearer '.length).trim();
+            } else if (xApiKey) {
+                apiKeyRaw = xApiKey;
+            }
+
+            if (!apiKeyRaw) {
+                return AuthController.createErrorResponse('Missing API key', 401);
+            }
+
+            // Basic hardening: avoid hashing arbitrarily large inputs
+            if (apiKeyRaw.length > 256) {
+                return AuthController.createErrorResponse('Invalid API key', 401);
+            }
+
+            // Only accept base64url-ish keys (matches generateApiKey())
+            if (!/^[A-Za-z0-9_-]+$/.test(apiKeyRaw)) {
+                return AuthController.createErrorResponse('Invalid API key', 401);
+            }
+
+            const keyHash = await sha256Hash(apiKeyRaw);
+            const apiKeyService = new ApiKeyService(env);
+            const apiKey = await apiKeyService.findApiKeyByHash(keyHash);
+            if (!apiKey) {
+                return AuthController.createErrorResponse('Invalid API key', 401);
+            }
+
+            const userService = new UserService(env);
+            const user = await userService.findUser({ id: apiKey.userId });
+            if (!user) {
+                return AuthController.createErrorResponse('Invalid API key', 401);
+            }
+
+            // Check user account status
+            if (user.deletedAt || !user.isActive || user.isSuspended) {
+                return AuthController.createErrorResponse('Invalid API key', 401);
+            }
+            if (user.lockedUntil && user.lockedUntil > new Date()) {
+                return AuthController.createErrorResponse('Account temporarily locked', 401);
+            }
+
+            const jwtUtils = JWTUtils.getInstance(env);
+            const expiresIn = 15 * 60; // 15 minutes
+            const expiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
+
+            const sessionId = `api_key:${apiKey.id}`;
+            const accessToken = await jwtUtils.createToken(
+                {
+                    sub: user.id,
+                    email: user.email,
+                    type: 'access',
+                    sessionId,
+                },
+                expiresIn,
+            );
+
+            await apiKeyService.updateApiKeyLastUsed(apiKey.id);
+
+            return AuthController.createSuccessResponse({
+                accessToken,
+                expiresIn,
+                expiresAt,
+                apiKeyId: apiKey.id,
+                user: mapUserResponse(user),
+            });
+        } catch (error) {
+            return AuthController.handleError(error, 'exchange API key');
         }
     }
 
@@ -564,22 +661,22 @@ export class AuthController extends BaseController {
 
             const authService = new AuthService(env);
             const result = await authService.verifyEmailWithOtp(email, otp, request);
-            
+
             const response = AuthController.createSuccessResponse(
                 formatAuthResponse(result.user, result.sessionId, result.expiresAt)
             );
-            
+
             setSecureAuthCookies(response, {
                 accessToken: result.accessToken,
                 accessTokenExpiry: SessionService.config.sessionTTL
             });
-            
+
             return response;
         } catch (error) {
             if (error instanceof SecurityError) {
                 return AuthController.createErrorResponse(error.message, error.statusCode);
             }
-            
+
             return AuthController.handleError(error, 'verify email');
         }
     }
@@ -603,7 +700,7 @@ export class AuthController extends BaseController {
 
             const authService = new AuthService(env);
             await authService.resendVerificationOtp(email);
-            
+
             return AuthController.createSuccessResponse({
                 message: 'Verification code sent successfully'
             });
@@ -611,7 +708,7 @@ export class AuthController extends BaseController {
             if (error instanceof SecurityError) {
                 return AuthController.createErrorResponse(error.message, error.statusCode);
             }
-            
+
             return AuthController.handleError(error, 'resend verification OTP');
         }
     }
@@ -623,23 +720,23 @@ export class AuthController extends BaseController {
     static async getCsrfToken(request: Request, _env: Env, _ctx: ExecutionContext, _routeContext: RouteContext): Promise<Response> {
         try {
             const token = CsrfService.getOrGenerateToken(request, false);
-            
-            const response = AuthController.createSuccessResponse({ 
+
+            const response = AuthController.createSuccessResponse({
                 token,
                 headerName: CsrfService.defaults.headerName,
                 expiresIn: Math.floor(CsrfService.defaults.tokenTTL / 1000)
             });
-            
+
             // Set the token in cookie with proper expiration
             const maxAge = Math.floor(CsrfService.defaults.tokenTTL / 1000);
             CsrfService.setTokenCookie(response, token, maxAge);
-            
+
             return response;
         } catch (error) {
             return AuthController.handleError(error, 'get CSRF token');
         }
     }
-    
+
     /**
      * Get available authentication providers
      * GET /api/auth/providers
@@ -655,17 +752,17 @@ export class AuthController extends BaseController {
             const hasGithub = !!env.GITHUB_CLIENT_ID && !!env.GITHUB_CLIENT_SECRET;
             const hasCrowdin = !!env.CROWDIN_CLIENT_ID && !!env.CROWDIN_CLIENT_SECRET;
             const hasOAuth = hasGoogle || hasGithub || hasCrowdin;
-            
+
             const providers = {
                 google: hasGoogle,
                 github: hasGithub,
                 crowdin: hasCrowdin,
                 email: !hasOAuth // Only allow email if NO OAuth is configured
             };
-            
+
             // Include CSRF token with provider info
             const csrfToken = CsrfService.getOrGenerateToken(request, false);
-            
+
             const response = AuthController.createSuccessResponse({
                 providers,
                 hasOAuth: hasOAuth,
@@ -673,14 +770,14 @@ export class AuthController extends BaseController {
                 csrfToken,
                 csrfExpiresIn: Math.floor(CsrfService.defaults.tokenTTL / 1000)
             });
-            
+
             // Set CSRF token cookie with proper expiration
             const maxAge = Math.floor(CsrfService.defaults.tokenTTL / 1000);
             CsrfService.setTokenCookie(response, csrfToken, maxAge);
-            
+
             return response;
         } catch (error) {
-            console.error('Get auth providers error:', error);
+            this.logger.error('Get auth providers error', error);
             return AuthController.createErrorResponse('Failed to get authentication providers', 500);
         }
     }

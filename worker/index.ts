@@ -1,5 +1,4 @@
 import { createLogger } from './logger';
-import { SmartCodeGeneratorAgent } from './agents/core/smartGeneratorAgent';
 import { isDispatcherAvailable } from './utils/dispatcherUtils';
 import { createApp } from './app';
 // import * as Sentry from '@sentry/cloudflare';
@@ -10,14 +9,16 @@ import { proxyToAiGateway } from './services/aigateway-proxy/controller';
 import { isOriginAllowed } from './config/security';
 import { proxyToSandbox } from './services/sandbox/request-handler';
 import { handleGitProtocolRequest, isGitProtocolRequest } from './api/handlers/git-protocol';
+import { getAgentStub } from './agents';
 import { dispatchScheduledToApps } from './utils/scheduledDispatcher';
 
 // Durable Object and Service exports
-export { UserAppSandboxService, DeployerService } from './services/sandbox/sandboxSdkClient';
+export { UserAppSandboxService } from './services/sandbox/sandboxSdkClient';
+export { CodeGeneratorAgent } from './agents/core/codingAgent';
+export { UserSecretsStore } from './services/secrets/UserSecretsStore';
 
-// export const CodeGeneratorAgent = Sentry.instrumentDurableObjectWithSentry(sentryOptions, SmartCodeGeneratorAgent);
+// export const CodeGeneratorAgent = Sentry.instrumentDurableObjectWithSentry(sentryOptions, CodeGeneratorAgent);
 // export const DORateLimitStore = Sentry.instrumentDurableObjectWithSentry(sentryOptions, BaseDORateLimitStore);
-export const CodeGeneratorAgent = SmartCodeGeneratorAgent;
 export const DORateLimitStore = BaseDORateLimitStore;
 
 // Logger for the main application and handlers
@@ -25,7 +26,7 @@ const logger = createLogger('App');
 
 function setOriginControl(env: Env, request: Request, currentHeaders: Headers): Headers {
     const origin = request.headers.get('Origin');
-    
+
     if (origin && isOriginAllowed(env, origin)) {
         currentHeaders.set('Access-Control-Allow-Origin', origin);
     }
@@ -47,6 +48,28 @@ async function handleUserAppRequest(request: Request, env: Env): Promise<Respons
 	const { hostname } = url;
 	logger.info(`Handling user app request for: ${hostname}`);
 
+	// Check if this is an agent browser file serving request
+	// Pattern: b-{agentid}-{token}.{previewDomain}
+	const subdomain = hostname.split('.')[0];
+	if (subdomain.startsWith('b-')) {
+		// Extract agentId and token from subdomain
+		const withoutPrefix = subdomain.substring(2); // Remove 'b-'
+		const lastHyphenIndex = withoutPrefix.lastIndexOf('-');
+
+		if (lastHyphenIndex !== -1) {
+			const agentId = withoutPrefix.substring(0, lastHyphenIndex);
+			logger.info(`Agent browser file serving request for agent: ${agentId}`);
+
+			try {
+				const agentStub = await getAgentStub(env, agentId);
+				return await agentStub.handleBrowserFileServing(request);
+			} catch (error: any) {
+				logger.error(`Error forwarding to agent: ${error.message}`);
+				return new Response('Agent not found', { status: 404 });
+			}
+		}
+	}
+
 	// 1. Attempt to proxy to a live development sandbox.
 	// proxyToSandbox doesn't consume the request body on a miss, so no clone is needed here.
 	const sandboxResponse = await proxyToSandbox(request, env);
@@ -57,10 +80,10 @@ async function handleUserAppRequest(request: Request, env: Env): Promise<Respons
             logger.info(`Serving websocket response from sandbox for: ${hostname}`);
             return sandboxResponse;
         }
-		
+
 		// Add headers to identify this as a sandbox response
 		let headers = new Headers(sandboxResponse.headers);
-		
+
         if (sandboxResponse.status === 500) {
             headers.set('X-Preview-Type', 'sandbox-error');
         } else {
@@ -69,7 +92,7 @@ async function handleUserAppRequest(request: Request, env: Env): Promise<Respons
         headers = setOriginControl(env, request, headers);
         headers.append('Vary', 'Origin');
 		headers.set('Access-Control-Expose-Headers', 'X-Preview-Type');
-		
+
 		return new Response(sandboxResponse.body, {
 			status: sandboxResponse.status,
 			statusText: sandboxResponse.statusText,
@@ -85,21 +108,21 @@ async function handleUserAppRequest(request: Request, env: Env): Promise<Respons
 	}
 
 	// Extract the app name (e.g., "xyz" from "xyz.build.cloudflare.dev").
-	const appName = hostname.split('.')[0];
+	const appName = subdomain;
 	const dispatcher = env['DISPATCHER'];
 
 	try {
 		const worker = dispatcher.get(appName);
 		const dispatcherResponse = await worker.fetch(request);
-		
+
 		// Add headers to identify this as a dispatcher response
 		let headers = new Headers(dispatcherResponse.headers);
-		
+
 		headers.set('X-Preview-Type', 'dispatcher');
         headers = setOriginControl(env, request, headers);
         headers.append('Vary', 'Origin');
 		headers.set('Access-Control-Expose-Headers', 'X-Preview-Type');
-		
+
 		return new Response(dispatcherResponse.body, {
 			status: dispatcherResponse.status,
 			statusText: dispatcherResponse.statusText,
@@ -108,6 +131,7 @@ async function handleUserAppRequest(request: Request, env: Env): Promise<Respons
 	} catch (error: any) {
 		// This block catches errors if the binding doesn't exist or if worker.fetch() fails.
 		logger.warn(`Error dispatching to worker '${appName}': ${error.message}`);
+
 		return new Response('An error occurred while loading this application.', { status: 500 });
 	}
 }
@@ -152,7 +176,7 @@ const worker = {
 			if (isGitProtocolRequest(pathname)) {
 				return handleGitProtocolRequest(request, env, ctx);
 			}
-			
+
 			// Serve static assets for all non-API routes from the ASSETS binding.
 			if (!pathname.startsWith('/api/')) {
 				return env.ASSETS.fetch(request);
@@ -164,7 +188,7 @@ const worker = {
                 const previewDomain = getPreviewDomain(env);
 
                 logger.info(`Origin: ${origin}, Preview Domain: ${previewDomain}`);
-                
+
                 return proxyToAiGateway(request, env, ctx);
 				// if (origin && origin.endsWith(`.${previewDomain}`)) {
                 //     return proxyToAiGateway(request, env, ctx);
@@ -172,6 +196,7 @@ const worker = {
                 // logger.warn(`Access denied. Invalid origin: ${origin}, preview domain: ${previewDomain}`);
                 // return new Response('Access denied. Invalid origin.', { status: 403 });
 			}
+
 			// Handle all API requests with the main Hono application.
 			logger.info(`Handling API request for: ${url}`);
 			const app = createApp(env);
@@ -188,7 +213,7 @@ const worker = {
 
 	async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
 		logger.info(`Cron triggered: ${controller.cron}`);
-		
+
 		// Dispatch scheduled event to all deployed user apps
 		ctx.waitUntil(dispatchScheduledToApps(controller.cron, env));
 	},
