@@ -145,6 +145,45 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
     }
 
     /**
+     * @param props - Optional props
+     */
+    async initializeFork(props?: Record<string, unknown> | undefined): Promise<void> {
+        // Run common migration FIRST, before any state access
+        const migratedState = StateMigration.migrateCommon(this.state);
+        if (migratedState) {
+            this.setState(migratedState);
+        }
+
+        const agentProps = props as AgentBootstrapProps;
+        const behaviorType = agentProps?.behaviorType ?? this.state.behaviorType ?? 'phasic';
+        const projectType = agentProps?.projectType ?? this.state.projectType ?? 'app';
+
+        if (behaviorType === 'phasic') {
+            this.behavior = new PhasicCodingBehavior(this as AgentInfrastructure<PhasicState>, projectType);
+        } else {
+            this.behavior = new AgenticCodingBehavior(this as AgentInfrastructure<AgenticState>, projectType);
+        }
+        
+        // Create objective based on project type
+        this.objective = this.createObjective(projectType);
+
+        this.behavior.onStart(props);
+
+        // Ensure state is migrated for any previous versions
+        this.behavior.migrateStateIfNeeded();
+        
+        // Just in case
+        await this.gitInit();
+        
+        await this.behavior.ensureTemplateDetails();
+
+        // Load the latest user configs
+        const modelConfigService = new ModelConfigService(this.env);
+        const userConfigsRecord = await modelConfigService.getUserModelConfigs(this.state.metadata.userId);
+        this.behavior.setUserModelConfigs(userConfigsRecord);
+    }
+
+    /**
      * Called evertime when agent is started or re-started
      * @param props - Optional props
      */
