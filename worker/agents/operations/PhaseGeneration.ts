@@ -5,7 +5,6 @@ import { executeInference } from '../inferutils/infer';
 import { issuesPromptFormatter, PROMPT_UTILS, STRATEGIES } from '../prompts';
 import { Message } from '../inferutils/common';
 import { AgentOperation, getSystemPromptWithProjectContext, OperationOptions } from '../operations/common';
-import { AGENT_CONFIG } from '../inferutils/config';
 import type { UserContext } from '../core/types';
 import { imagesToBase64 } from 'worker/utils/images';
 import { PhasicGenerationContext } from '../domain/values/GenerationContext';
