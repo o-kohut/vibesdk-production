@@ -309,7 +309,7 @@ export class PhaseGenerationOperation extends AgentOperation<PhasicGenerationCon
                 agentActionName: "phaseGeneration",
                 schema: PhaseConceptGenerationSchema,
                 context: options.inferenceContext,
-                reasoning_effort: (userContext?.suggestions || issues.runtimeErrors.length > 0) ? AGENT_CONFIG.phaseGeneration.reasoning_effort == 'low' ? 'medium' : 'high' : undefined,
+                reasoning_effort: (userContext?.suggestions || issues.runtimeErrors.length > 0) ? 'high' : undefined,
                 format: 'markdown',
             });
     
