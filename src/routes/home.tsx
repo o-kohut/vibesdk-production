@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect, useMemo } from 'react';
-import { ArrowRight, Info, AlertTriangle } from 'react-feather';
+import { ArrowRight, ArrowUpRight, Info, AlertTriangle } from 'react-feather';
 import { useNavigate } from 'react-router';
 import { ProjectModeSelector, type ProjectModeOption } from '../components/project-mode-selector';
 import { MAX_AGENT_QUERY_LENGTH, SUPPORTED_IMAGE_MIME_TYPES, type ProjectType } from '@/api-types';
@@ -184,6 +184,21 @@ export default function Home() {
 							"px-6 p-8 flex flex-col items-center z-10 relative",
 							discoverReady ? "mt-48" : "mt-[20vh] sm:mt-[24vh] md:mt-[28vh]"
 						)}>
+						<motion.a
+							href="https://support.crowdin.com/developer/crowdin-apps-serverless/"
+							target="_blank"
+							rel="noopener noreferrer"
+							initial={{ opacity: 0, y: -6 }}
+							animate={{ opacity: 1, y: 0 }}
+							transition={{ duration: 0.3, ease: 'easeOut' }}
+							className="group self-start mb-5 inline-flex items-center gap-2 rounded-full border bg-bg-4/80 dark:bg-bg-2/80 backdrop-blur px-3.5 py-1.5 text-xs shadow-sm outline-none transition-colors duration-200 hover:bg-accent/50 hover:border-foreground/20 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:border-ring"
+						>
+							<span className="size-1.5 rounded-full bg-brand shrink-0" aria-hidden="true" />
+							<span className="font-medium text-text-primary">Serverless Apps</span>
+							<span className="hidden sm:inline text-text-tertiary" aria-hidden="true">&middot;</span>
+							<span className="hidden sm:inline text-text-secondary transition-colors duration-200 group-hover:text-text-primary">a new way to build Crowdin apps</span>
+							<ArrowUpRight className="size-3.5 text-text-tertiary shrink-0 transition-all duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-text-primary" />
+						</motion.a>
 						<h1 className="text-primary font-semibold font-heading leading-[1.1] tracking-tight text-5xl w-full mb-4 flex items-center gap-3">
 							Build your Crowdin app
 							<Badge className="text-xs font-semibold bg-foreground/5 text-foreground/70 border-border uppercase tracking-wider">
